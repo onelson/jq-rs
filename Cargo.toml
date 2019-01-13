@@ -1,0 +1,16 @@
+[package]
+name = "json-query"
+version = "0.1.0"
+authors = ["Owen Nelson <onelson@gmail.com>"]
+description = "Runs jq programs to extract data from json strings."
+license = "Apache-2.0/MIT"
+categories = ["api-bindings"]
+keywords = ["json", "jq"]
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+jq-sys = "0.1"
+
+[dev-dependencies]
+serde_json = "1.0"
