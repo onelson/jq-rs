@@ -2,9 +2,6 @@
 
 This rust crate provides programmatic access to [jq] 1.6 via its C api.
 
-> Note that libjq is provided and linked statically by [jq-sys] and [jq-src]
-> which require having autotools and gcc in `PATH` to build.
-
 By leveraging [jq] we can extract and transform data from a json string
 using jq's filtering dsl.
 
@@ -53,7 +50,29 @@ Literally all that is provided is the ability to execute a _jq program_ on a blo
 of json.
 Please pardon my dust as I sort out the details.
 
+## Linking to libjq
+
+When the `bundled` feature is enabled (on by default) `libjq` is provided and
+linked statically by [jq-sys] and [jq-src]
+which require having autotools and gcc in `PATH` to build.
+
+If you disable the `bundled` feature, you will need to ensure your crate
+links to `libjq` in order for the bindings to work.
+For this you may need to add a `build.rs` script if you don't have one already.
+
 [jq]: https://github.com/stedolan/jq
 [serde_json]: https://github.com/serde-rs/json
 [jq-sys]: https://github.com/onelson/jq-sys
 [jq-src]: https://github.com/onelson/jq-src
+
+# Changelog
+
+## v0.1.1 (2019-01-14)
+
+* Added extra links to cargo manifest.
+* Added some basic docs.
+* Added a `bundled` feature to opt in or out of using the bundled source.
+
+## v0.1.0 (2019-01-13)
+
+Initial release.

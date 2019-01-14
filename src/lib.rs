@@ -1,3 +1,52 @@
+//! ## Overview
+//!
+//! [jq] is a command line tool which allows users to write small filter/transform
+//! programs with a special DSL to extract data from json.
+//!
+//! This crate provides bindings to the C API internals to give us programmatic
+//! access to this tool.
+//!
+//! For example, given a blob of json data, we can extract the values from
+//! the `id` field of a series of objects.
+//!
+//! ```
+//! let data = r#"{
+//!     "colors": [
+//!         {"id": 12, "name": "cyan"},
+//!         {"id": 34, "name": "magenta"},
+//!         {"id": 56, "name": "yellow"},
+//!         {"id": 78, "name": "black"}
+//!     ]
+//! }"#;
+//!
+//! let output = json_query::run("[.colors[].id]", data).unwrap();
+//! assert_eq!("[12,34,56,78]", &output);
+//! ```
+//!
+//! The output from these jq programs are returned as a string (just as is
+//! the case if you were using [jq] from the command-line), so be prepared to
+//! parse the output as needed after this step.
+//!
+//! Pairing this crate with something like [serde_json] might make a lot of
+//! sense.
+//!
+//! See the [jq site][jq] for details on the jq program syntax.
+//!
+//! ## Linking to `libjq`
+//!
+//! When the `bundled` feature is enabled (on by default) `libjq` is provided and
+//! linked statically by [jq-sys] and [jq-src]
+//! which require having autotools and gcc in `PATH` to build.
+//!
+//! If you disable the `bundled` feature, you will need to ensure your crate
+//! links to `libjq` in order for the bindings to work.
+//! For this you may need to add a `build.rs` script if you don't have one already.
+//!
+//! [jq]: https://stedolan.github.io/jq/
+//! [serde_json]: https://github.com/serde-rs/json
+//! [jq-sys]: https://github.com/onelson/jq-sys
+//! [jq-src]: https://github.com/onelson/jq-src
+//!
 extern crate jq_sys;
 use std::ffi::CString;
 
@@ -120,6 +169,13 @@ mod jq {
     }
 }
 
+
+/// Run a jq program on a blob of json data.
+///
+/// In the case of failure to run the program, feedback from the jq api will be
+/// available in the supplied `String` value.
+/// Failures can occur for a variety of reasons, but mostly you'll see them as
+/// a result of bad jq program syntax, or invalid json data.
 pub fn run(program: &str, data: &str) -> Result<String, String> {
     let mut state = jq::init();
     let buf = CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;

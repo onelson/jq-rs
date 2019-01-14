@@ -1,16 +1,22 @@
 [package]
 name = "json-query"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Owen Nelson <onelson@gmail.com>"]
-description = "Runs jq programs to extract data from json strings."
+description = "Run jq programs to extract data from json strings."
+repository = "https://github.com/onelson/json-query"
+homepage = "https://github.com/onelson/json-query"
 license = "Apache-2.0/MIT"
 categories = ["api-bindings"]
 keywords = ["json", "jq"]
 readme = "README.md"
 edition = "2018"
 
+[features]
+default = ["bundled"]
+bundled = ["jq-sys/bundled"]
+
 [dependencies]
-jq-sys = "0.1"
+jq-sys = { version = "0.1", default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0"
