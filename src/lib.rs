@@ -48,21 +48,26 @@
 //! [jq-src]: https://github.com/onelson/jq-src
 //!
 extern crate jq_sys;
+
+#[cfg(test)]
+#[macro_use]
+extern crate serde_json;
+
 use std::ffi::CString;
 
 mod jq {
-    use jq_sys::{
+    use ::jq_sys::{
         self, jq_next, jv_copy, jv_dump_string, jv_invalid_get_msg, jv_parser_next, jv_string_value,
     };
-    use std::ffi::{CStr, CString};
-    use std::os::raw::c_char;
+    use ::std::ffi::{CStr, CString};
+    use ::std::os::raw::c_char;
 
-    pub type JqValue = jq_sys::jv;
-    pub type JqState = jq_sys::jq_state;
+    pub type JqValue = ::jq_sys::jv;
+    pub type JqState = ::jq_sys::jq_state;
 
     mod jv {
         use super::JqValue;
-        use jq_sys;
+        use ::jq_sys;
 
         pub fn value_is_valid(value: JqValue) -> bool {
             unsafe { jq_sys::jv_get_kind(value) != jq_sys::jv_kind_JV_KIND_INVALID }
@@ -191,7 +196,7 @@ pub fn run(program: &str, data: &str) -> Result<String, String> {
 #[cfg(test)]
 mod test {
     use super::run;
-    use serde_json::{self, json};
+    use ::serde_json;
 
     fn get_movies() -> serde_json::Value {
         json!({

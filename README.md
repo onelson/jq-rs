@@ -52,20 +52,39 @@ Please pardon my dust as I sort out the details.
 
 ## Linking to libjq
 
-When the `bundled` feature is enabled (on by default) `libjq` is provided and
+When the `bundled` feature is enabled (**off by default**) `libjq` is provided and
 linked statically by [jq-sys] and [jq-src]
 which require having autotools and gcc in `PATH` to build.
 
 If you disable the `bundled` feature, you will need to ensure your crate
 links to `libjq` in order for the bindings to work.
-For this you may need to add a `build.rs` script if you don't have one already.
+
+See the [jq-sys building docs][jq-sys-building] for details on how to share
+hints with the [jq-sys] crate on how to link.
+
+> Note that it may be required to `cargo clean` when switching between building with
+> `bundled` enabled or disabled.
+>
+> I can't explain it, but sometimes the `bundled` build will break if you don't give the
+> out dir a good scrubbing.
 
 [jq]: https://github.com/stedolan/jq
 [serde_json]: https://github.com/serde-rs/json
 [jq-sys]: https://github.com/onelson/jq-sys
+[jq-sys-building]: https://github.com/onelson/jq-sys#building
 [jq-src]: https://github.com/onelson/jq-src
 
 # Changelog
+
+## v0.2.0 (2019-02-18)
+
+- Updates [jq-sys] dep to v0.2.0 for better build controls.
+- Settles on 2015 edition style imports (for now).
+
+Breaking Changes:
+
+- `bundled` feature is no longer enabled by default.
+
 
 ## v0.1.1 (2019-01-14)
 
