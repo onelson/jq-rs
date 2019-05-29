@@ -76,6 +76,10 @@ hints with the [jq-sys] crate on how to link.
 
 # Changelog
 
+## Unreleased
+
+- [#1] Enabled `bundled` feature when building on docs.rs.
+
 ## v0.2.0 (2019-02-18)
 
 - Updates [jq-sys] dep to v0.2.0 for better build controls.
@@ -95,3 +99,5 @@ Breaking Changes:
 ## v0.1.0 (2019-01-13)
 
 Initial release.
+
+[#1]: https://github.com/onelson/json-query/issues/1

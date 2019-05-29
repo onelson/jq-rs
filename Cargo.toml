@@ -19,3 +19,6 @@ jq-sys = { version = "^0.2.0" }
 
 [dev-dependencies]
 serde_json = "1.0"
+
+[package.metadata.docs.rs]
+features = ["bundled"]
