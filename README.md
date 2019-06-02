@@ -1,5 +1,9 @@
 # json-query
 
+[![crates.io](https://img.shields.io/crates/v/json-query.svg)](https://crates.io/crates/json-query)
+[![crates.io](https://img.shields.io/crates/d/json-query.svg)](https://crates.io/crates/json-query)
+[![docs.rs](https://docs.rs/json-query/badge.svg)](https://docs.rs/json-query)
+
 This rust crate provides programmatic access to [jq] 1.6 via its C api.
 
 By leveraging [jq] we can extract and transform data from a json string
@@ -76,11 +80,11 @@ hints with the [jq-sys] crate on how to link.
 
 # Changelog
 
-## Unreleased
+## 0.2.1 (2019-06-01)
 
 - [#1] Enabled `bundled` feature when building on docs.rs.
 
-## v0.2.0 (2019-02-18)
+## 0.2.0 (2019-02-18)
 
 - Updates [jq-sys] dep to v0.2.0 for better build controls.
 - Settles on 2015 edition style imports (for now).
@@ -90,13 +94,13 @@ Breaking Changes:
 - `bundled` feature is no longer enabled by default.
 
 
-## v0.1.1 (2019-01-14)
+## 0.1.1 (2019-01-14)
 
 * Added extra links to cargo manifest.
 * Added some basic docs.
 * Added a `bundled` feature to opt in or out of using the bundled source.
 
-## v0.1.0 (2019-01-13)
+## 0.1.0 (2019-01-13)
 
 Initial release.
 
