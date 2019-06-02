@@ -23,6 +23,35 @@
 //! assert_eq!("[12,34,56,78]", &output);
 //! ```
 //!
+//! For times where you want to run the same jq program against multiple inputs, `compile()`
+//! returns a handle to the compiled jq program.
+//!
+//! ```
+//! let tv_shows = r#"[
+//!     {"title": "Twilight Zone"},
+//!     {"title": "X-Files"},
+//!     {"title": "The Outer Limits"}
+//! ]"#;
+//!
+//! let movies = r#"[
+//!     {"title": "The Omen"},
+//!     {"title": "Amityville Horror"},
+//!     {"title": "The Thing"}
+//! ]"#;
+//!
+//! let mut program = json_query::compile("[.[].title] | sort").unwrap();
+//!
+//! assert_eq!(
+//!     r#"["The Outer Limits","Twilight Zone","X-Files"]"#,
+//!     &program.run(tv_shows).unwrap()
+//! );
+//!
+//! assert_eq!(
+//!     r#"["Amityville Horror","The Omen","The Thing"]"#,
+//!     &program.run(movies).unwrap()
+//! );
+//! ```
+//!
 //! The output from these jq programs are returned as a string (just as is
 //! the case if you were using [jq] from the command-line), so be prepared to
 //! parse the output as needed after this step.
@@ -53,21 +82,22 @@ extern crate jq_sys;
 #[macro_use]
 extern crate serde_json;
 
+use jq::JqState;
 use std::ffi::CString;
 
 mod jq {
-    use ::jq_sys::{
+    use jq_sys::{
         self, jq_next, jv_copy, jv_dump_string, jv_invalid_get_msg, jv_parser_next, jv_string_value,
     };
-    use ::std::ffi::{CStr, CString};
-    use ::std::os::raw::c_char;
+    use std::ffi::{CStr, CString};
+    use std::os::raw::c_char;
 
     pub type JqValue = ::jq_sys::jv;
     pub type JqState = ::jq_sys::jq_state;
 
     mod jv {
         use super::JqValue;
-        use ::jq_sys;
+        use jq_sys;
 
         pub fn value_is_valid(value: JqValue) -> bool {
             unsafe { jq_sys::jv_get_kind(value) != jq_sys::jv_kind_JV_KIND_INVALID }
@@ -174,7 +204,6 @@ mod jq {
     }
 }
 
-
 /// Run a jq program on a blob of json data.
 ///
 /// In the case of failure to run the program, feedback from the jq api will be
@@ -193,10 +222,67 @@ pub fn run(program: &str, data: &str) -> Result<String, String> {
     res
 }
 
+/// A pre-compiled jq program which can be run against different inputs.
+pub struct JqProgram {
+    state: *mut JqState,
+}
+
+impl JqProgram {
+    /// Runs a json string input against a pre-compiled jq program.
+    pub fn run(&mut self, data: &str) -> Result<String, String> {
+        let buf =
+            CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;
+        let res = jq::load_string(&mut self.state, buf);
+        res
+    }
+}
+
+impl Drop for JqProgram {
+    fn drop(&mut self) {
+        jq::teardown(&mut self.state);
+    }
+}
+
+/// Compile a jq program then reuse it, running several inputs against it.
+pub fn compile(program: &str) -> Result<JqProgram, String> {
+    let mut state = jq::init();
+    let prog =
+        CString::new(program).map_err(|_| "unable to convert data to c string.".to_string())?;
+
+    jq::compile_program(&mut state, prog)?;
+    Ok(JqProgram { state })
+}
+
 #[cfg(test)]
 mod test {
-    use super::run;
-    use ::serde_json;
+    use super::{compile, run};
+    use serde_json;
+
+    #[test]
+    fn reuse_compiled_program() {
+        let query = r#"if . == 0 then "zero" elif . == 1 then "one" else "many" end"#;
+        let mut prog = compile(&query).unwrap();
+        assert_eq!(prog.run("2").unwrap(), r#""many""#);
+        assert_eq!(prog.run("1").unwrap(), r#""one""#);
+        assert_eq!(prog.run("0").unwrap(), r#""zero""#);
+    }
+
+    #[test]
+    fn jq_state_is_not_global() {
+        let input = r#"{"id": 123, "name": "foo"}"#;
+        let query1 = r#".name"#;
+        let query2 = r#".id"#;
+
+        // Basically this test is just to check that the state pointers returned by
+        // `jq::init()` are completely independent and don't share any global state.
+        let mut prog1 = compile(&query1).unwrap();
+        let mut prog2 = compile(&query2).unwrap();
+
+        assert_eq!(prog1.run(input).unwrap(), r#""foo""#);
+        assert_eq!(prog2.run(input).unwrap(), r#"123"#);
+        assert_eq!(prog1.run(input).unwrap(), r#""foo""#);
+        assert_eq!(prog2.run(input).unwrap(), r#"123"#);
+    }
 
     fn get_movies() -> serde_json::Value {
         json!({

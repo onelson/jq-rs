@@ -17,7 +17,39 @@ let res = json_query::run(".name", r#"{"name": "test"}"#);
 assert_eq!(res, Ok("\"test\"".to_string()));
 ```
 
-The return values from the run method are json strings, and as such will need
+In addition to running one-off programs with `json_query::run()`, you can also
+use `json_query::compile()` to compile a jq program and reuse it with
+different inputs.
+
+```rust
+use json_query;
+
+let tv_shows = r#"[
+    {"title": "Twilight Zone"},
+    {"title": "X-Files"},
+    {"title": "The Outer Limits"}
+]"#;
+
+let movies = r#"[
+    {"title": "The Omen"},
+    {"title": "Amityville Horror"},
+    {"title": "The Thing"}
+]"#;
+
+let mut program = json_query::compile("[.[].title] | sort").unwrap();
+
+assert_eq!(
+    r#"["The Outer Limits","Twilight Zone","X-Files"]"#,
+    &program.run(tv_shows).unwrap()
+);
+
+assert_eq!(
+    r#"["Amityville Horror","The Omen","The Thing"]"#,
+    &program.run(movies).unwrap()
+);
+```
+
+The return values from the run methods are json strings, and as such will need
 to be parsed if you want to work with the actual data types being represented.
 As such, you may want to pair this crate with [serde_json] or similar.
 
@@ -79,6 +111,11 @@ hints with the [jq-sys] crate on how to link.
 [jq-src]: https://github.com/onelson/jq-src
 
 # Changelog
+
+## 0.3.0 (2019-06-01)
+
+- Added `json_query::compile()`. Compile a jq program, then reuse it, running
+  it against several inputs.
 
 ## 0.2.1 (2019-06-01)
 
