@@ -15,10 +15,15 @@ default = []
 bundled = ["jq-sys/bundled"]
 
 [dependencies]
-jq-sys = { version = "^0.2.0" }
+jq-sys = "0.2.1"
 
 [dev-dependencies]
+criterion = "0.2"
 serde_json = "1.0"
 
 [package.metadata.docs.rs]
 features = ["bundled"]
+
+[[bench]]
+name = "simple"
+harness = false
