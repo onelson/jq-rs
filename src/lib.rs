@@ -162,7 +162,10 @@ mod jq {
         while jv::value_is_valid(value) {
             let dumped = jv_dump_string(value, 0);
             match get_string_value(jv_string_value(dumped)) {
-                Ok(s) => buf.push_str(&s),
+                Ok(s) => {
+                    buf.push_str(&s);
+                    buf.push('\n')
+                },
                 Err(e) => return Err(format!("parse error: {}", e)),
             };
             value = jq_next(*state);
@@ -190,6 +193,11 @@ mod jq {
             value = jv_parser_next(parser);
         }
         check(value)?;
+
+        // remove last trailing newline
+        let len = buf.trim_end().len();
+        buf.truncate(len);
+
         Ok(buf)
     }
 
@@ -319,6 +327,12 @@ mod test {
     fn extract_name() {
         let res = run(".name", r#"{"name": "test"}"#);
         assert_eq!(res, Ok(r#""test""#.to_string()));
+    }
+
+    #[test]
+    fn unpack_array() {
+        let res = run(".[]", "[1,2,3]");
+        assert_eq!(res, Ok("1\n2\n3".to_string()));
     }
 
     #[test]
