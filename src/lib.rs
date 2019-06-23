@@ -165,7 +165,7 @@ mod jq {
                 Ok(s) => {
                     buf.push_str(&s);
                     buf.push('\n')
-                },
+                }
                 Err(e) => return Err(format!("parse error: {}", e)),
             };
             value = jq_next(*state);
