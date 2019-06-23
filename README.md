@@ -112,6 +112,10 @@ hints with the [jq-sys] crate on how to link.
 
 # Changelog
 
+## (Unreleased)
+
+- Fixed issue where newlines in output were not being preserved correctly ([#3]).
+
 ## 0.3.0 (2019-06-01)
 
 - Added `json_query::compile()`. Compile a jq program, then reuse it, running
@@ -142,3 +146,4 @@ Breaking Changes:
 Initial release.
 
 [#1]: https://github.com/onelson/json-query/issues/1
+[#3]: https://github.com/onelson/json-query/issues/3
