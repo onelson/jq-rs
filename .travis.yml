@@ -1,0 +1,20 @@
+language: rust
+dist: xenial
+rust:
+  - stable
+  # - beta
+  - nightly
+cache: cargo
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+before_script:
+  - echo "$TRAVIS_RUST_VERSION" > rust-toolchain
+  - rustup component add rustfmt
+  - rustup show
+script:
+  - cargo fmt -- --check
+  - cargo test --features bundled
+notifications:
+  email: false
