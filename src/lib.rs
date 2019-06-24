@@ -244,4 +244,32 @@ mod test {
         let res = run(".", data);
         assert!(res.is_err());
     }
+
+    pub mod mem_errors {
+        //! Attempting run a program resulting in bad field access has been
+        //! shown to sometimes trigger a use after free or double free memory
+        //! error.
+        //!
+        //! Technically the program and inputs are both valid, but the
+        //! evaluation of the program causes bad memory access to happen.
+        //!
+        //! https://github.com/onelson/json-query/issues/4
+
+        use super::*;
+
+        #[test]
+        fn missing_field_access() {
+            let prog = ".[] | .hello";
+            let data = "[1,2,3]";
+            assert!(run(prog, data).is_err());
+        }
+
+        #[test]
+        #[ignore]
+        fn missing_field_access_compiled() {
+            let mut prog = compile(".[] | .hello").unwrap();
+            let data = "[1,2,3]";
+            assert!(prog.run(data).is_err());
+        }
+    }
 }
