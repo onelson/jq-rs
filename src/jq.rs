@@ -3,9 +3,8 @@
 //!
 //! These are building blocks and not intended for use from the public API.
 
-use jq_sys::{
-    self, jq_next, jv_copy, jv_dump_string, jv_invalid_get_msg, jv_parser_next, jv_string_value,
-};
+use jq::jv::value_is_valid;
+use jq_sys::{self, jq_next, jv_copy, jv_dump_string, jv_invalid_get_msg, jv_string_value};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
@@ -14,15 +13,21 @@ pub type JqState = ::jq_sys::jq_state;
 
 mod jv {
     use super::JqValue;
-    use jq_sys;
+    use jq_sys::{jv_get_kind, jv_invalid_has_msg, jv_kind_JV_KIND_INVALID};
 
     pub fn value_is_valid(value: JqValue) -> bool {
-        unsafe { jq_sys::jv_get_kind(value) != jq_sys::jv_kind_JV_KIND_INVALID }
+        unsafe { jv_get_kind(value) != jv_kind_JV_KIND_INVALID }
     }
 
+    // Will eventually free the value it receives.
+    // You will may want to `jv_copy()` before handing your value in.
     pub fn invalid_has_msg(value: JqValue) -> bool {
-        unsafe { jq_sys::jv_invalid_has_msg(value) == 1 }
+        unsafe { jv_invalid_has_msg(value) == 1 }
     }
+}
+
+pub fn is_halted(state: *mut *mut JqState) -> bool {
+    unsafe { jq_sys::jq_halted(*state) != 0 }
 }
 
 pub fn init() -> *mut JqState {
@@ -33,14 +38,32 @@ pub fn teardown(state: *mut *mut JqState) {
     unsafe { jq_sys::jq_teardown(state) }
 }
 
-pub fn load_string(state: *mut *mut JqState, buf: CString) -> Result<String, String> {
+pub fn load_string(state: *mut *mut JqState, input: CString) -> Result<String, String> {
+    let len = input.as_bytes().len() as i32;
+    let ptr = input.as_ptr();
+
+    // For a single run, we could set this to `1` (aka `true`) but this will
+    // break the repeated `JqProgram` usage.
+    // It may be worth exposing this to the caller so they can set it for each
+    // use case, but for now we'll just "leave it open."
+    let is_last = 0;
+
     unsafe {
         let parser = jq_sys::jv_parser_new(0);
-        let len = buf.as_bytes().len() as i32;
-        jq_sys::jv_parser_set_buf(parser, buf.as_ptr(), len, 0);
-        let res = parse(state, parser);
+        jq_sys::jv_parser_set_buf(parser, ptr, len, is_last);
+
+        // the parser produces the initial value to process?
+        let value = jq_sys::jv_parser_next(parser);
+
+        let ret = if value_is_valid(value) {
+            process(state, value)
+        } else if is_halted(state) {
+            Err("halted".to_string())
+        } else {
+            Err("invalid parser next".to_string())
+        };
         jq_sys::jv_parser_free(parser);
-        res
+        ret
     }
 }
 
@@ -53,8 +76,12 @@ unsafe fn get_string_value(value: *const c_char) -> Result<String, ::std::str::U
 /// Frees a jv and extracts any error info as it does so.
 ///
 /// `Err` with the reason if the thing was trash.
-unsafe fn check(value: JqValue) -> Result<(), String> {
-    if jv::invalid_has_msg(jv_copy(value)) {
+unsafe fn check(state: *mut *mut JqState, value: JqValue) -> Result<(), String> {
+    let ret = if is_halted(state) {
+        jq_sys::jv_free(value);
+        Err("halted".into())
+    } else if jv::invalid_has_msg(jv_copy(value)) {
+        // `value` is consumed here, converted into `msg`
         let msg = jv_invalid_get_msg(value);
         let reason = format!(
             "parse error: {}",
@@ -62,55 +89,49 @@ unsafe fn check(value: JqValue) -> Result<(), String> {
         );
         let ret = Err(reason);
         jq_sys::jv_free(msg);
-        return ret;
+        ret
     } else {
         jq_sys::jv_free(value);
-    }
-    Ok(())
+        Ok(())
+    };
+    ret
 }
 
 /// Renders the data from the parser and pushes it into the buffer.
-unsafe fn dump(
-    state: *mut *mut JqState,
-    initial_value: JqValue,
-    buf: &mut String,
-) -> Result<(), String> {
-    let mut value = initial_value;
+unsafe fn dump(state: *mut *mut JqState, buf: &mut String) -> Result<(), String> {
+    let mut value = jq_next(*state);
+
     while jv::value_is_valid(value) {
         let dumped = jv_dump_string(value, 0);
         match get_string_value(jv_string_value(dumped)) {
             Ok(s) => {
                 buf.push_str(&s);
-                buf.push('\n')
+                buf.push('\n');
+                jq_sys::jv_free(dumped);
             }
-            Err(e) => return Err(format!("parse error: {}", e)),
+            Err(e) => {
+                jq_sys::jv_free(dumped);
+                jq_sys::jv_free(value);
+                return Err(format!("parse error: {}", e));
+            }
         };
+
         value = jq_next(*state);
     }
-    check(value)
+
+    check(state, value)
 }
 
 /// Unwind the parser and return the rendered result.
 ///
 /// When this results in `Err`, the String value should contain a message about
 /// what failed.
-unsafe fn parse(
-    state: *mut *mut JqState,
-    parser: *mut jq_sys::jv_parser,
-) -> Result<String, String> {
+unsafe fn process(state: *mut *mut JqState, initial_value: JqValue) -> Result<String, String> {
     let mut buf = String::new();
-    let mut value = jv_parser_next(parser);
-    while jv::value_is_valid(value) {
-        jq_sys::jq_start(*state, value, 0);
-        if let Err(reason) = dump(state, jq_next(*state), &mut buf) {
-            // outer loop item needs freeing during early return
-            jq_sys::jv_free(value);
-            return Err(reason);
-        }
-        value = jv_parser_next(parser);
+    jq_sys::jq_start(*state, initial_value, 0);
+    if let Err(reason) = dump(state, &mut buf) {
+        return Err(reason);
     }
-    check(value)?;
-
     // remove last trailing newline
     let len = buf.trim_end().len();
     buf.truncate(len);
