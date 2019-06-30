@@ -93,15 +93,14 @@ use std::ffi::CString;
 /// Failures can occur for a variety of reasons, but mostly you'll see them as
 /// a result of bad jq program syntax, or invalid json data.
 pub fn run(program: &str, data: &str) -> Result<String, String> {
-    let mut state = jq::init();
-    let buf = CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;
-    let prog =
-        CString::new(program).map_err(|_| "unable to convert data to c string.".to_string())?;
+    if data.trim().is_empty() {
+        // During work on #4, #7, the parser test which allows us to avoid a memory
+        // error shows that an empty input just yields an empty response BUT our
+        // implementation would yield a parse error.
+        return Ok("".into());
+    };
 
-    jq::compile_program(&mut state, prog)?;
-    let res = jq::load_string(&mut state, buf);
-    jq::teardown(&mut state);
-    res
+    compile(program)?.run(data)
 }
 
 /// A pre-compiled jq program which can be run against different inputs.
@@ -112,10 +111,15 @@ pub struct JqProgram {
 impl JqProgram {
     /// Runs a json string input against a pre-compiled jq program.
     pub fn run(&mut self, data: &str) -> Result<String, String> {
-        let buf =
+        if data.trim().is_empty() {
+            // During work on #4, #7, the parser test which allows us to avoid a memory
+            // error shows that an empty input just yields an empty response BUT our
+            // implementation would yield a parse error.
+            return Ok("".into());
+        }
+        let input =
             CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;
-        let res = jq::load_string(&mut self.state, buf);
-        res
+        jq::load_string(&mut self.state, input)
     }
 }
 
@@ -243,5 +247,32 @@ mod test {
 
         let res = run(".", data);
         assert!(res.is_err());
+    }
+
+    pub mod mem_errors {
+        //! Attempting run a program resulting in bad field access has been
+        //! shown to sometimes trigger a use after free or double free memory
+        //! error.
+        //!
+        //! Technically the program and inputs are both valid, but the
+        //! evaluation of the program causes bad memory access to happen.
+        //!
+        //! https://github.com/onelson/json-query/issues/4
+
+        use super::*;
+
+        #[test]
+        fn missing_field_access() {
+            let prog = ".[] | .hello";
+            let data = "[1,2,3]";
+            assert!(run(prog, data).is_err());
+        }
+
+        #[test]
+        fn missing_field_access_compiled() {
+            let mut prog = compile(".[] | .hello").unwrap();
+            let data = "[1,2,3]";
+            assert!(prog.run(data).is_err());
+        }
     }
 }
