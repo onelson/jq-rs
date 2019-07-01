@@ -112,7 +112,7 @@ impl JqProgram {
         }
         let input =
             CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;
-        self.jq.load_string(input)
+        self.jq.execute(input)
     }
 }
 

@@ -35,8 +35,8 @@ impl Jq {
         unsafe { jq_halted(self.state) != 0 }
     }
 
-    /// Evaluate the program against an input.
-    pub fn load_string(&mut self, input: CString) -> Result<String, String> {
+    /// Run the jq program against an input.
+    pub fn execute(&mut self, input: CString) -> Result<String, String> {
         let mut parser = Parser::new();
         if self.is_halted() {
             Err("halted".into())
