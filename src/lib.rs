@@ -83,7 +83,6 @@ extern crate serde_json;
 
 mod jq;
 
-use jq::JqState;
 use std::ffi::CString;
 
 /// Run a jq program on a blob of json data.
@@ -93,19 +92,13 @@ use std::ffi::CString;
 /// Failures can occur for a variety of reasons, but mostly you'll see them as
 /// a result of bad jq program syntax, or invalid json data.
 pub fn run(program: &str, data: &str) -> Result<String, String> {
-    if data.trim().is_empty() {
-        // During work on #4, #7, the parser test which allows us to avoid a memory
-        // error shows that an empty input just yields an empty response BUT our
-        // implementation would yield a parse error.
-        return Ok("".into());
-    };
-
     compile(program)?.run(data)
 }
 
 /// A pre-compiled jq program which can be run against different inputs.
 pub struct JqProgram {
-    state: *mut JqState,
+    // lol
+    jq: jq::Jq,
 }
 
 impl JqProgram {
@@ -119,28 +112,22 @@ impl JqProgram {
         }
         let input =
             CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;
-        jq::load_string(&mut self.state, input)
-    }
-}
-
-impl Drop for JqProgram {
-    fn drop(&mut self) {
-        jq::teardown(&mut self.state);
+        self.jq.load_string(input)
     }
 }
 
 /// Compile a jq program then reuse it, running several inputs against it.
 pub fn compile(program: &str) -> Result<JqProgram, String> {
-    let mut state = jq::init();
     let prog =
         CString::new(program).map_err(|_| "unable to convert data to c string.".to_string())?;
-
-    jq::compile_program(&mut state, prog)?;
-    Ok(JqProgram { state })
+    Ok(JqProgram {
+        jq: jq::Jq::compile_program(prog)?,
+    })
 }
 
 #[cfg(test)]
 mod test {
+
     use super::{compile, run};
     use serde_json;
 
