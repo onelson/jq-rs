@@ -84,6 +84,40 @@ extern crate serde_json;
 mod jq;
 
 use std::ffi::CString;
+use std::fmt;
+
+pub enum Error {
+    /// The jq program failed to compile.
+    Compile,
+    /// Indicates problems initializing the JQ state machine, or invalid values
+    /// produced by it.
+    System {
+        msg: Option<String>,
+    },
+    /// Looks like the halted error type might only make sense in jq 1.7 (where
+    /// we can get an exit code to inform why the program halted).
+    Halted,
+    Unknown,
+}
+
+// FIXME: Until the next minor release, we won't be returning the Error variants
+//  back to the caller. Instead we'll be converting to `String` to maintain
+//  compatibility with the current signatures. When 0.4 is ready, revise these
+//  so they are more consistent (or adopt `failure`?)
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let detail: String = match self {
+            Error::Compile => "syntax error: JQ Program failed to compile.".into(),
+            Error::System { msg } => msg
+                .as_ref()
+                .cloned()
+                .unwrap_or_else(|| "Unknown JQ Error".into()),
+            Error::Halted => "JQ Program Halted".into(),
+            Error::Unknown => "Unknown JQ Error.".into(),
+        };
+        write!(f, "{}", detail)
+    }
+}
 
 /// Run a jq program on a blob of json data.
 ///
@@ -112,7 +146,10 @@ impl JqProgram {
         }
         let input =
             CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;
-        self.jq.execute(input)
+        self.jq.execute(input).map_err(|e| {
+            // FIXME: string errors until v0.4
+            format!("{}", e)
+        })
     }
 }
 
@@ -121,7 +158,10 @@ pub fn compile(program: &str) -> Result<JqProgram, String> {
     let prog =
         CString::new(program).map_err(|_| "unable to convert data to c string.".to_string())?;
     Ok(JqProgram {
-        jq: jq::Jq::compile_program(prog)?,
+        jq: jq::Jq::compile_program(prog).map_err(|e| {
+            // FIXME: string errors until v0.4
+            format!("{}", e)
+        })?,
     })
 }
 

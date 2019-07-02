@@ -3,6 +3,7 @@
 //!
 //! These are building blocks and not intended for use from the public API.
 
+use super::Error;
 // Yeah, it's a lot.
 use jq_sys::{
     jq_compile, jq_halted, jq_init, jq_next, jq_start, jq_state, jq_teardown, jv, jv_copy,
@@ -18,13 +19,24 @@ pub struct Jq {
 }
 
 impl Jq {
-    pub fn compile_program(program: CString) -> Result<Self, String> {
+    pub fn compile_program(program: CString) -> Result<Self, Error> {
         let jq = Jq {
-            state: unsafe { jq_init() },
+            state: unsafe {
+                // jq's master branch shows this can be a null pointer, in
+                // which case the binary will exit with a `Error::System`.
+                let ptr = jq_init();
+                if ptr.is_null() {
+                    return Err(Error::System {
+                        msg: Some("Failed to init".into()),
+                    });
+                } else {
+                    ptr
+                }
+            },
         };
         unsafe {
             if jq_compile(jq.state, program.as_ptr()) == 0 {
-                Err("syntax error: JQ Program failed to compile.".into())
+                Err(Error::Compile)
             } else {
                 Ok(jq)
             }
@@ -36,27 +48,23 @@ impl Jq {
     }
 
     /// Run the jq program against an input.
-    pub fn execute(&mut self, input: CString) -> Result<String, String> {
+    pub fn execute(&mut self, input: CString) -> Result<String, Error> {
         let mut parser = Parser::new();
-        if self.is_halted() {
-            Err("halted".into())
-        } else {
-            self.process(parser.parse(input)?)
-        }
+        self.process(parser.parse(input)?)
     }
 
     /// Unwind the parser and return the rendered result.
     ///
     /// When this results in `Err`, the String value should contain a message about
     /// what failed.
-    fn process(&mut self, initial_value: JV) -> Result<String, String> {
+    fn process(&mut self, initial_value: JV) -> Result<String, Error> {
         let mut buf = String::new();
 
         unsafe {
             jq_start(self.state, initial_value.ptr, 0);
         }
-        if let Err(reason) = unsafe { dump(self, &mut buf) } {
-            return Err(reason);
+        unsafe {
+            dump(self, &mut buf)?;
         }
         // remove last trailing newline
         let len = buf.trim_end().len();
@@ -144,7 +152,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, input: CString) -> Result<JV, String> {
+    pub fn parse(&mut self, input: CString) -> Result<JV, Error> {
         // For a single run, we could set this to `1` (aka `true`) but this will
         // break the repeated `JqProgram` usage.
         // It may be worth exposing this to the caller so they can set it for each
@@ -171,9 +179,13 @@ impl Parser {
         if value_is_valid(&value) {
             Ok(value)
         } else {
-            Err(value
-                .get_msg()
-                .unwrap_or_else(|| "Parser error".to_string()))
+            Err(Error::System {
+                msg: Some(
+                    value
+                        .get_msg()
+                        .unwrap_or_else(|| "Parser error".to_string()),
+                ),
+            })
         }
     }
 }
@@ -193,7 +205,7 @@ unsafe fn get_string_value(value: *const c_char) -> Result<String, std::str::Utf
 }
 
 /// Renders the data from the parser and pushes it into the buffer.
-unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), String> {
+unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
     let mut value = JV {
         ptr: jq_next(jq.state),
     };
@@ -205,7 +217,9 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), String> {
                 buf.push('\n');
             }
             Err(e) => {
-                return Err(format!("String Decode error: {}", e));
+                return Err(Error::System {
+                    msg: Some(format!("String Decode error: {}", e)),
+                });
             }
         };
 
@@ -214,12 +228,34 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), String> {
         };
     }
 
-    // formerly extracted as `check()`.
     if jq.is_halted() {
-        return Err("halted".into());
+        // FIXME: check exit code and customize the error
+        //  jq's main does some tests to decide what exit code to use here (some
+        //  of which are positive). Seems like this branch can end in non-err, so
+        //  this block should be filled out before the next release.
+        return Err(Error::Halted);
     } else if let Some(reason) = value.get_msg() {
-        return Err(reason);
+        return Err(Error::System { msg: Some(reason) });
     } else {
         return Ok(());
     }
+}
+
+/// Various exit codes jq checks for during the `if (jq_halted(jq))` branch of
+/// their processing loop.
+///
+/// Adapted from the enum seen in jq's master branch right now.
+/// The numbers seem to line up with the magic numbers seen in
+/// the 1.6 release, though there's no enum that I saw at that point in the git
+/// history.
+///
+/// We'll use this to match inside the `jq.is_halted()` branch in `dump()`.
+#[allow(non_camel_case_types, dead_code)]
+enum ExitCodes {
+    JQ_OK = 0,
+    JQ_OK_NULL_KIND = -1, /* exit 0 if --exit-status is not set*/
+    JQ_ERROR_SYSTEM = 2,
+    JQ_ERROR_COMPILE = 3,
+    JQ_OK_NO_OUTPUT = -4, /* exit 0 if --exit-status is not set*/
+    JQ_ERROR_UNKNOWN = 5,
 }
