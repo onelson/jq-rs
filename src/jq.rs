@@ -3,12 +3,13 @@
 //!
 //! These are building blocks and not intended for use from the public API.
 
+use super::Error;
 // Yeah, it's a lot.
 use jq_sys::{
-    jq_compile, jq_halted, jq_init, jq_next, jq_start, jq_state, jq_teardown, jv, jv_copy,
-    jv_dump_string, jv_free, jv_get_kind, jv_invalid_get_msg, jv_invalid_has_msg,
-    jv_kind_JV_KIND_INVALID, jv_parser, jv_parser_free, jv_parser_new, jv_parser_next,
-    jv_parser_set_buf, jv_string_value,
+    jq_compile, jq_get_exit_code, jq_halted, jq_init, jq_next, jq_start, jq_state, jq_teardown, jv,
+    jv_copy, jv_dump_string, jv_free, jv_get_kind, jv_invalid_get_msg, jv_invalid_has_msg,
+    jv_kind_JV_KIND_INVALID, jv_kind_JV_KIND_NUMBER, jv_number_value, jv_parser, jv_parser_free,
+    jv_parser_new, jv_parser_next, jv_parser_set_buf, jv_string_value,
 };
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -18,13 +19,24 @@ pub struct Jq {
 }
 
 impl Jq {
-    pub fn compile_program(program: CString) -> Result<Self, String> {
+    pub fn compile_program(program: CString) -> Result<Self, Error> {
         let jq = Jq {
-            state: unsafe { jq_init() },
+            state: unsafe {
+                // jq's master branch shows this can be a null pointer, in
+                // which case the binary will exit with a `Error::System`.
+                let ptr = jq_init();
+                if ptr.is_null() {
+                    return Err(Error::System {
+                        msg: Some("Failed to init".into()),
+                    });
+                } else {
+                    ptr
+                }
+            },
         };
         unsafe {
             if jq_compile(jq.state, program.as_ptr()) == 0 {
-                Err("syntax error: JQ Program failed to compile.".into())
+                Err(Error::Compile)
             } else {
                 Ok(jq)
             }
@@ -35,28 +47,42 @@ impl Jq {
         unsafe { jq_halted(self.state) != 0 }
     }
 
-    /// Run the jq program against an input.
-    pub fn execute(&mut self, input: CString) -> Result<String, String> {
-        let mut parser = Parser::new();
-        if self.is_halted() {
-            Err("halted".into())
+    fn get_exit_code(&self) -> ExitCode {
+        let exit_code = JV {
+            ptr: unsafe { jq_get_exit_code(self.state) },
+        };
+
+        // The rules for this seem odd, but I'm trying to model this after the
+        // similar block in the jq `main.c`s `process()` function.
+
+        if !value_is_valid(&exit_code) {
+            ExitCode::JQ_OK
         } else {
-            self.process(parser.parse(input)?)
+            exit_code
+                .as_number()
+                .map(|i| (i as isize).into())
+                .unwrap_or(ExitCode::JQ_ERROR_UNKNOWN)
         }
+    }
+
+    /// Run the jq program against an input.
+    pub fn execute(&mut self, input: CString) -> Result<String, Error> {
+        let mut parser = Parser::new();
+        self.process(parser.parse(input)?)
     }
 
     /// Unwind the parser and return the rendered result.
     ///
     /// When this results in `Err`, the String value should contain a message about
     /// what failed.
-    fn process(&mut self, initial_value: JV) -> Result<String, String> {
+    fn process(&mut self, initial_value: JV) -> Result<String, Error> {
         let mut buf = String::new();
 
         unsafe {
             jq_start(self.state, initial_value.ptr, 0);
         }
-        if let Err(reason) = unsafe { dump(self, &mut buf) } {
-            return Err(reason);
+        unsafe {
+            dump(self, &mut buf)?;
         }
         // remove last trailing newline
         let len = buf.trim_end().len();
@@ -108,6 +134,16 @@ impl JV {
             None
         }
     }
+
+    pub fn as_number(&self) -> Option<f64> {
+        unsafe {
+            if jv_get_kind(self.ptr) == jv_kind_JV_KIND_NUMBER {
+                Some(jv_number_value(self.ptr))
+            } else {
+                None
+            }
+        }
+    }
 }
 
 impl Drop for JV {
@@ -144,7 +180,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, input: CString) -> Result<JV, String> {
+    pub fn parse(&mut self, input: CString) -> Result<JV, Error> {
         // For a single run, we could set this to `1` (aka `true`) but this will
         // break the repeated `JqProgram` usage.
         // It may be worth exposing this to the caller so they can set it for each
@@ -171,9 +207,13 @@ impl Parser {
         if value_is_valid(&value) {
             Ok(value)
         } else {
-            Err(value
-                .get_msg()
-                .unwrap_or_else(|| "Parser error".to_string()))
+            Err(Error::System {
+                msg: Some(
+                    value
+                        .get_msg()
+                        .unwrap_or_else(|| "Parser error".to_string()),
+                ),
+            })
         }
     }
 }
@@ -193,7 +233,7 @@ unsafe fn get_string_value(value: *const c_char) -> Result<String, std::str::Utf
 }
 
 /// Renders the data from the parser and pushes it into the buffer.
-unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), String> {
+unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
     let mut value = JV {
         ptr: jq_next(jq.state),
     };
@@ -205,7 +245,9 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), String> {
                 buf.push('\n');
             }
             Err(e) => {
-                return Err(format!("String Decode error: {}", e));
+                return Err(Error::System {
+                    msg: Some(format!("String Decode error: {}", e)),
+                });
             }
         };
 
@@ -214,12 +256,61 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), String> {
         };
     }
 
-    // formerly extracted as `check()`.
     if jq.is_halted() {
-        return Err("halted".into());
+        use self::ExitCode::*;
+        match jq.get_exit_code() {
+            JQ_ERROR_SYSTEM => Err(Error::System {
+                msg: value.get_msg(),
+            }),
+            // As far as I know, we should not be able to see a compile error
+            // this deep into the execution of a jq program (it would need to be
+            // compiled already, right?)
+            // Still, compile failure is represented by an exit code, so in
+            // order to be exhaustive we have to check for it.
+            JQ_ERROR_COMPILE => Err(Error::Compile),
+            // Any of these `OK_` variants are "success" cases.
+            // I suppose the jq program can halt successfully, or not, or not at
+            // all and still terminate some other way?
+            JQ_OK | JQ_OK_NULL_KIND | JQ_OK_NO_OUTPUT => Ok(()),
+            JQ_ERROR_UNKNOWN => Err(Error::Unknown),
+        }
     } else if let Some(reason) = value.get_msg() {
-        return Err(reason);
+        Err(Error::System { msg: Some(reason) })
     } else {
-        return Ok(());
+        Ok(())
+    }
+}
+
+/// Various exit codes jq checks for during the `if (jq_halted(jq))` branch of
+/// their processing loop.
+///
+/// Adapted from the enum seen in jq's master branch right now.
+/// The numbers seem to line up with the magic numbers seen in
+/// the 1.6 release, though there's no enum that I saw at that point in the git
+/// history.
+#[allow(non_camel_case_types, dead_code)]
+enum ExitCode {
+    JQ_OK = 0,
+    JQ_OK_NULL_KIND = -1,
+    JQ_ERROR_SYSTEM = 2,
+    JQ_ERROR_COMPILE = 3,
+    JQ_OK_NO_OUTPUT = -4,
+    JQ_ERROR_UNKNOWN = 5,
+}
+
+impl From<isize> for ExitCode {
+    fn from(number: isize) -> Self {
+        use self::ExitCode::*;
+        match number as isize {
+            n if n == JQ_OK as isize => JQ_OK,
+            n if n == JQ_OK_NULL_KIND as isize => JQ_OK_NULL_KIND,
+            n if n == JQ_ERROR_SYSTEM as isize => JQ_ERROR_SYSTEM,
+            n if n == JQ_ERROR_COMPILE as isize => JQ_ERROR_COMPILE,
+            n if n == JQ_OK_NO_OUTPUT as isize => JQ_OK_NO_OUTPUT,
+            n if n == JQ_ERROR_UNKNOWN as isize => JQ_ERROR_UNKNOWN,
+            // `5` is called out explicitly in the jq source, but also "unknown"
+            // seems to make good sense for other unexpected number.
+            _ => JQ_ERROR_UNKNOWN,
+        }
     }
 }
