@@ -83,9 +83,6 @@ impl Jq {
 
             dump(self, &mut buf)?;
         }
-        // remove last trailing newline
-        let len = buf.trim_end().len();
-        buf.truncate(len);
 
         Ok(buf)
     }

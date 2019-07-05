@@ -20,7 +20,7 @@
 //! }"#;
 //!
 //! let output = jq_rs::run("[.colors[].id]", data).unwrap();
-//! assert_eq!("[12,34,56,78]", &output);
+//! assert_eq!(&output, "[12,34,56,78]\n");
 //! ```
 //!
 //! For times where you want to run the same jq program against multiple inputs, `compile()`
@@ -42,13 +42,13 @@
 //! let mut program = jq_rs::compile("[.[].title] | sort").unwrap();
 //!
 //! assert_eq!(
-//!     r#"["The Outer Limits","Twilight Zone","X-Files"]"#,
-//!     &program.run(tv_shows).unwrap()
+//!     &program.run(tv_shows).unwrap(),
+//!     "[\"The Outer Limits\",\"Twilight Zone\",\"X-Files\"]\n"
 //! );
 //!
 //! assert_eq!(
-//!     r#"["Amityville Horror","The Omen","The Thing"]"#,
-//!     &program.run(movies).unwrap()
+//!     &program.run(movies).unwrap(),
+//!     "[\"Amityville Horror\",\"The Omen\",\"The Thing\"]\n",
 //! );
 //! ```
 //!
@@ -171,9 +171,9 @@ mod test {
     fn reuse_compiled_program() {
         let query = r#"if . == 0 then "zero" elif . == 1 then "one" else "many" end"#;
         let mut prog = compile(&query).unwrap();
-        assert_eq!(prog.run("2").unwrap(), r#""many""#);
-        assert_eq!(prog.run("1").unwrap(), r#""one""#);
-        assert_eq!(prog.run("0").unwrap(), r#""zero""#);
+        assert_eq!(prog.run("2").unwrap(), "\"many\"\n");
+        assert_eq!(prog.run("1").unwrap(), "\"one\"\n");
+        assert_eq!(prog.run("0").unwrap(), "\"zero\"\n");
     }
 
     #[test]
@@ -187,10 +187,10 @@ mod test {
         let mut prog1 = compile(&query1).unwrap();
         let mut prog2 = compile(&query2).unwrap();
 
-        assert_eq!(prog1.run(input).unwrap(), r#""foo""#);
-        assert_eq!(prog2.run(input).unwrap(), r#"123"#);
-        assert_eq!(prog1.run(input).unwrap(), r#""foo""#);
-        assert_eq!(prog2.run(input).unwrap(), r#"123"#);
+        assert_eq!(prog1.run(input).unwrap(), "\"foo\"\n");
+        assert_eq!(prog2.run(input).unwrap(), "123\n");
+        assert_eq!(prog1.run(input).unwrap(), "\"foo\"\n");
+        assert_eq!(prog2.run(input).unwrap(), "123\n");
     }
 
     fn get_movies() -> serde_json::Value {
@@ -212,7 +212,7 @@ mod test {
 
     #[test]
     fn identity_empty() {
-        assert_eq!(run(".", "{}"), Ok("{}".to_string()));
+        assert_eq!(run(".", "{}"), Ok("{}\n".to_string()));
     }
 
     #[test]
@@ -227,13 +227,13 @@ mod test {
     #[test]
     fn extract_name() {
         let res = run(".name", r#"{"name": "test"}"#);
-        assert_eq!(res, Ok(r#""test""#.to_string()));
+        assert_eq!(res, Ok("\"test\"\n".to_string()));
     }
 
     #[test]
     fn unpack_array() {
         let res = run(".[]", "[1,2,3]");
-        assert_eq!(res, Ok("1\n2\n3".to_string()));
+        assert_eq!(res, Ok("1\n2\n3\n".to_string()));
     }
 
     #[test]
