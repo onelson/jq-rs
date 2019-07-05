@@ -6,17 +6,23 @@
 
 > Prior to v0.4.0 this crate was named [json-query].
 
-This rust crate provides programmatic access to [jq] 1.6 via its C api.
+This rust crate provides access to [jq] 1.6 via the `libjq` C API (rather than
+"shelling out").
 
-By leveraging [jq] we can extract and transform data from a json string
-using jq's filtering dsl.
+By leveraging [jq] we can extract data from and transform json strings using
+jq's dsl.
+
+## Usage
+
+The interface provided by this crate is very basic. You supply a jq program
+string and a string to run the program over.
 
 ```rust
 use jq_rs;
 // ...
 
 let res = jq_rs::run(".name", r#"{"name": "test"}"#);
-assert_eq!(res, Ok("\"test\"".to_string()));
+assert_eq!(res, Ok("\"test\"\n".to_string()));
 ```
 
 In addition to running one-off programs with `jq_rs::run()`, you can also
@@ -41,19 +47,44 @@ let movies = r#"[
 let mut program = jq_rs::compile("[.[].title] | sort").unwrap();
 
 assert_eq!(
-    r#"["The Outer Limits","Twilight Zone","X-Files"]"#,
-    &program.run(tv_shows).unwrap()
+    &program.run(tv_shows).unwrap(),
+    "[\"The Outer Limits\",\"Twilight Zone\",\"X-Files\"]\n"
 );
 
 assert_eq!(
-    r#"["Amityville Horror","The Omen","The Thing"]"#,
-    &program.run(movies).unwrap()
+    &program.run(movies).unwrap(),
+    "[\"Amityville Horror\",\"The Omen\",\"The Thing\"]\n",
 );
 ```
 
-The return values from the run methods are json strings, and as such will need
-to be parsed if you want to work with the actual data types being represented.
-As such, you may want to pair this crate with [serde_json] or similar.
+### A note on perf
+
+While the benchmarks are far from exhaustive, they indicate that much of the
+runtime of a simple jq program goes to the compilation. In fact, the compilation
+is _quite expensive_.
+
+```
+run one off             time:   [48.594 ms 48.689 ms 48.800 ms]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+run pre-compiled        time:   [4.0351 us 4.0708 us 4.1223 us]
+Found 15 outliers among 100 measurements (15.00%)
+  6 (6.00%) high mild
+  9 (9.00%) high severe
+```
+
+If you have a need to run the same jq program multiple times it is
+_highly recommended_ to retain a pre-compiled `JqProgram` and reuse it.
+
+### Handling Output
+
+The return values from jq are _strings_ since there is no certainty that the
+output will be valid json. As such the output will need to be parsed if you want
+to work with the actual data types being represented.
+
+In such cases you may want to pair this crate with [serde_json] or similar.
 
 For example, here we want to extract the numbers from a set of objects:
 
@@ -90,21 +121,20 @@ Please pardon my dust as I sort out the details.
 
 ## Linking to libjq
 
-When the `bundled` feature is enabled (**off by default**) `libjq` is provided and
-linked statically by [jq-sys] and [jq-src]
-which require having autotools and gcc in `PATH` to build.
+This crate requires access to `libjq` at build and/or runtime depending on the
+your choice.
 
-If you disable the `bundled` feature, you will need to ensure your crate
-links to `libjq` in order for the bindings to work.
+When the `bundled` feature is enabled (**off by default**) `libjq` is provided
+and linked statically to your crate by [jq-sys] and [jq-src]. Using this feature
+requires having autotools and gcc in `PATH` in order for the to build to work.
 
+Without the `bundled` feature, _you_ will need to ensure your crate
+can link to `libjq` in order for the bindings to work.
+
+You can choose to compile `libjq` yourself, or perhaps install it via your
+system's package manager.
 See the [jq-sys building docs][jq-sys-building] for details on how to share
 hints with the [jq-sys] crate on how to link.
-
-> Note that it may be required to `cargo clean` when switching between building with
-> `bundled` enabled or disabled.
->
-> I can't explain it, but sometimes the `bundled` build will break if you don't give the
-> out dir a good scrubbing.
 
 [jq]: https://github.com/stedolan/jq
 [serde_json]: https://github.com/serde-rs/json
