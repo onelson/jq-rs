@@ -1,10 +1,10 @@
 [package]
-name = "json-query"
-version = "0.3.1"
+name = "jq-rs"
+version = "0.4.0-alpha"
 authors = ["Owen Nelson <onelson@gmail.com>"]
 description = "Run jq programs to extract data from json strings."
-repository = "https://github.com/onelson/json-query"
-homepage = "https://github.com/onelson/json-query"
+repository = "https://github.com/onelson/jq-rs"
+homepage = "https://github.com/onelson/jq-rs"
 license = "Apache-2.0/MIT"
 categories = ["api-bindings"]
 keywords = ["json", "jq"]

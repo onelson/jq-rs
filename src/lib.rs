@@ -1,7 +1,3 @@
-#![deprecated(
-    since = "0.3.1",
-    note = "This is the final release of `json-query`. Future releases will be published as `jq-rs`."
-)]
 //! ## Overview
 //!
 //! [jq] is a command line tool which allows users to write small filter/transform
@@ -23,7 +19,7 @@
 //!     ]
 //! }"#;
 //!
-//! let output = json_query::run("[.colors[].id]", data).unwrap();
+//! let output = jq_rs::run("[.colors[].id]", data).unwrap();
 //! assert_eq!("[12,34,56,78]", &output);
 //! ```
 //!
@@ -43,7 +39,7 @@
 //!     {"title": "The Thing"}
 //! ]"#;
 //!
-//! let mut program = json_query::compile("[.[].title] | sort").unwrap();
+//! let mut program = jq_rs::compile("[.[].title] | sort").unwrap();
 //!
 //! assert_eq!(
 //!     r#"["The Outer Limits","Twilight Zone","X-Files"]"#,
