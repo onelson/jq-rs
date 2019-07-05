@@ -4,6 +4,11 @@
 [![crates.io](https://img.shields.io/crates/d/json-query.svg)](https://crates.io/crates/json-query)
 [![docs.rs](https://docs.rs/json-query/badge.svg)](https://docs.rs/json-query)
 
+> **Notice**
+>
+> **Release 0.3.1 marks the end of the line for `json-query`.**
+> **Future releases will be published under the new name of [jq-rs].**
+
 This rust crate provides programmatic access to [jq] 1.6 via its C api.
 
 By leveraging [jq] we can extract and transform data from a json string
@@ -106,26 +111,35 @@ hints with the [jq-sys] crate on how to link.
 
 [jq]: https://github.com/stedolan/jq
 [serde_json]: https://github.com/serde-rs/json
+[jq-rs]: https://crates.io/crates/jq-rs
 [jq-sys]: https://github.com/onelson/jq-sys
 [jq-sys-building]: https://github.com/onelson/jq-sys#building
 [jq-src]: https://github.com/onelson/jq-src
 
 # Changelog
 
-## (Unreleased)
+## v0.3.1 ([2019-06-04](https://github.com/onelson/json-query/compare/v0.3.0..v0.3.1 "diff"))
+
+**Note: This is final release with the name `json-query`.
+Future releases will be published as [jq-rs].**
+
+Bugfixes
 
 - Fixed issue where newlines in output were not being preserved correctly ([#3]).
+- Resolved a memory error which could cause a crash when running a jq program
+  which could attempt to access missing fields on an object ([#4]).
+- Fixed some memory leaks which could occur during processing ([#10]).
 
-## 0.3.0 (2019-06-01)
+## v0.3.0 ([2019-06-01](https://github.com/onelson/json-query/compare/v0.2.1..v0.3.0 "diff"))
 
 - Added `json_query::compile()`. Compile a jq program, then reuse it, running
   it against several inputs.
 
-## 0.2.1 (2019-06-01)
+## v0.2.1 ([2019-06-01](https://github.com/onelson/json-query/compare/v0.2.0..v0.2.1 "diff"))
 
 - [#1] Enabled `bundled` feature when building on docs.rs.
 
-## 0.2.0 (2019-02-18)
+## v0.2.0 ([2019-02-18](https://github.com/onelson/json-query/compare/v0.1.1..v0.2.0 "diff"))
 
 - Updates [jq-sys] dep to v0.2.0 for better build controls.
 - Settles on 2015 edition style imports (for now).
@@ -135,11 +149,11 @@ Breaking Changes:
 - `bundled` feature is no longer enabled by default.
 
 
-## 0.1.1 (2019-01-14)
+## v0.1.1 ([2019-01-14](https://github.com/onelson/json-query/compare/v0.1.0..v0.1.1 "diff"))
 
-* Added extra links to cargo manifest.
-* Added some basic docs.
-* Added a `bundled` feature to opt in or out of using the bundled source.
+- Added extra links to cargo manifest.
+- Added some basic docs.
+- Added a `bundled` feature to opt in or out of using the bundled source.
 
 ## 0.1.0 (2019-01-13)
 
@@ -147,3 +161,5 @@ Initial release.
 
 [#1]: https://github.com/onelson/json-query/issues/1
 [#3]: https://github.com/onelson/json-query/issues/3
+[#4]: https://github.com/onelson/json-query/issues/4
+[#10]: https://github.com/onelson/json-query/issues/10

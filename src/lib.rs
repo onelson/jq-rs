@@ -1,3 +1,7 @@
+#![deprecated(
+    since = "0.3.1",
+    note = "This is the final release of `json-query`. Future releases will be published as `jq-rs`."
+)]
 //! ## Overview
 //!
 //! [jq] is a command line tool which allows users to write small filter/transform
