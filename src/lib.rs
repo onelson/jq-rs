@@ -94,9 +94,6 @@ pub enum Error {
     System {
         msg: Option<String>,
     },
-    /// Looks like the halted error type might only make sense in jq 1.7 (where
-    /// we can get an exit code to inform why the program halted).
-    Halted,
     Unknown,
 }
 
@@ -112,7 +109,6 @@ impl fmt::Display for Error {
                 .as_ref()
                 .cloned()
                 .unwrap_or_else(|| "Unknown JQ Error".into()),
-            Error::Halted => "JQ Program Halted".into(),
             Error::Unknown => "Unknown JQ Error.".into(),
         };
         write!(f, "{}", detail)
