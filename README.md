@@ -1,13 +1,10 @@
-# json-query
+# jq-rs
 
-[![crates.io](https://img.shields.io/crates/v/json-query.svg)](https://crates.io/crates/json-query)
-[![crates.io](https://img.shields.io/crates/d/json-query.svg)](https://crates.io/crates/json-query)
-[![docs.rs](https://docs.rs/json-query/badge.svg)](https://docs.rs/json-query)
+[![crates.io](https://img.shields.io/crates/v/jq-rs.svg)](https://crates.io/crates/jq-rs)
+[![crates.io](https://img.shields.io/crates/d/jq-rs.svg)](https://crates.io/crates/jq-rs)
+[![docs.rs](https://docs.rs/jq-rs/badge.svg)](https://docs.rs/jq-rs)
 
-> **Notice**
->
-> **Release 0.3.1 marks the end of the line for `json-query`.**
-> **Future releases will be published under the new name of [jq-rs].**
+> Prior to v0.4.0 this crate was named [json-query].
 
 This rust crate provides programmatic access to [jq] 1.6 via its C api.
 
@@ -15,19 +12,19 @@ By leveraging [jq] we can extract and transform data from a json string
 using jq's filtering dsl.
 
 ```rust
-use json_query;
+use jq_rs;
 // ...
 
-let res = json_query::run(".name", r#"{"name": "test"}"#);
+let res = jq_rs::run(".name", r#"{"name": "test"}"#);
 assert_eq!(res, Ok("\"test\"".to_string()));
 ```
 
-In addition to running one-off programs with `json_query::run()`, you can also
-use `json_query::compile()` to compile a jq program and reuse it with
+In addition to running one-off programs with `jq_rs::run()`, you can also
+use `jq_rs::compile()` to compile a jq program and reuse it with
 different inputs.
 
 ```rust
-use json_query;
+use jq_rs;
 
 let tv_shows = r#"[
     {"title": "Twilight Zone"},
@@ -41,7 +38,7 @@ let movies = r#"[
     {"title": "The Thing"}
 ]"#;
 
-let mut program = json_query::compile("[.[].title] | sort").unwrap();
+let mut program = jq_rs::compile("[.[].title] | sort").unwrap();
 
 assert_eq!(
     r#"["The Outer Limits","Twilight Zone","X-Files"]"#,
@@ -61,7 +58,7 @@ As such, you may want to pair this crate with [serde_json] or similar.
 For example, here we want to extract the numbers from a set of objects:
 
 ```rust
-use json_query;
+use jq_rs;
 use serde_json::{self, json};
 
 // ...
@@ -78,7 +75,7 @@ let data = json!({
 
 let query = "[.movies[].year]";
 // program output as a json string...
-let output = json_query::run(query, &data.to_string()).unwrap();
+let output = jq_rs::run(query, &data.to_string()).unwrap();
 // ... parse via serde
 let parsed: Vec<i64> = serde_json::from_str(&output).unwrap();
 
@@ -112,15 +109,18 @@ hints with the [jq-sys] crate on how to link.
 [jq]: https://github.com/stedolan/jq
 [serde_json]: https://github.com/serde-rs/json
 [jq-rs]: https://crates.io/crates/jq-rs
+[json-query]: https://crates.io/crates/json-query
 [jq-sys]: https://github.com/onelson/jq-sys
 [jq-sys-building]: https://github.com/onelson/jq-sys#building
 [jq-src]: https://github.com/onelson/jq-src
 
 # Changelog
 
+## v0.4.0 (Unreleased)
+
 ## v0.3.1 ([2019-06-04](https://github.com/onelson/json-query/compare/v0.3.0..v0.3.1 "diff"))
 
-**Note: This is final release with the name `json-query`.
+**Note: This is final release with the name [json-query].
 Future releases will be published as [jq-rs].**
 
 Bugfixes
