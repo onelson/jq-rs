@@ -55,7 +55,7 @@ impl Jq {
         // The rules for this seem odd, but I'm trying to model this after the
         // similar block in the jq `main.c`s `process()` function.
 
-        if !value_is_valid(&exit_code) {
+        if exit_code.is_valid() {
             ExitCode::JQ_OK
         } else {
             exit_code
@@ -80,8 +80,7 @@ impl Jq {
 
         unsafe {
             jq_start(self.state, initial_value.ptr, 0);
-        }
-        unsafe {
+
             dump(self, &mut buf)?;
         }
         // remove last trailing newline
@@ -104,7 +103,7 @@ struct JV {
 
 impl JV {
     /// Convert the current `JV` into the "dump string" rendering of itself.
-    pub fn dump_string(&self) -> Result<String, std::str::Utf8Error> {
+    pub fn as_dump_string(&self) -> Result<String, std::str::Utf8Error> {
         let dump = JV {
             ptr: unsafe { jv_dump_string(self.ptr, 0) },
         };
@@ -113,7 +112,7 @@ impl JV {
 
     /// Attempts to extract feedback from jq if the JV is invalid.
     pub fn get_msg(&self) -> Option<String> {
-        if invalid_has_msg(&self) {
+        if self.invalid_has_msg() {
             let reason = {
                 let msg = JV {
                     ptr: unsafe {
@@ -144,29 +143,30 @@ impl JV {
             }
         }
     }
+
+    pub fn is_valid(&self) -> bool {
+        unsafe {
+            // FIXME: looks like this copy should not be needed (but it is?)
+            //  Test suite shows a memory error if this value is freed after
+            //  being passed to `jv_get_kind()`, so I guess this is a
+            //  consuming call?
+
+            jv_get_kind(jv_copy(self.ptr)) != jv_kind_JV_KIND_INVALID
+        }
+    }
+
+    pub fn invalid_has_msg(&self) -> bool {
+        // FIXME: the C lib suggests the jv passed in here will eventually be freed.
+        //  I had a a `jv_copy()` to side-step this, but removing it removes one
+        //  leak warning in valgrind, so I don't know what the deal is.
+        unsafe { jv_invalid_has_msg(self.ptr) == 1 }
+    }
 }
 
 impl Drop for JV {
     fn drop(&mut self) {
         unsafe { jv_free(self.ptr) };
     }
-}
-
-fn value_is_valid(value: &JV) -> bool {
-    unsafe {
-        // FIXME: looks like this copy should not be needed (but it is?)
-        //   Test suite shows a memory error if this value is freed after being passed to
-        //   `jv_get_kind()`, so I guess this is a consuming call.
-        let x = jv_copy(value.ptr);
-        jv_get_kind(x) != jv_kind_JV_KIND_INVALID
-    }
-}
-
-fn invalid_has_msg(value: &JV) -> bool {
-    // XXX: the C lib suggests the jv passed in here will eventually be freed.
-    //   I had a a `jv_copy()` to side-step this, but removing it removes one
-    //   leak warning in valgrind, so I don't know what the deal is.
-    unsafe { jv_invalid_has_msg(value.ptr) == 1 }
 }
 
 struct Parser {
@@ -204,7 +204,7 @@ impl Parser {
         let value = JV {
             ptr: unsafe { jv_parser_next(self.ptr) },
         };
-        if value_is_valid(&value) {
+        if value.is_valid() {
             Ok(value)
         } else {
             Err(Error::System {
@@ -234,12 +234,14 @@ unsafe fn get_string_value(value: *const c_char) -> Result<String, std::str::Utf
 
 /// Renders the data from the parser and pushes it into the buffer.
 unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
+    // Looks a lot like an iterator...
+
     let mut value = JV {
         ptr: jq_next(jq.state),
     };
 
-    while value_is_valid(&value) {
-        match value.dump_string() {
+    while value.is_valid() {
+        match value.as_dump_string() {
             Ok(s) => {
                 buf.push_str(&s);
                 buf.push('\n');
