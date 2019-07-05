@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate criterion;
-extern crate json_query;
+extern crate jq_rs;
 
 use criterion::black_box;
 use criterion::Criterion;
 
 fn run_one_off(prog: &str, input: &str) -> Result<String, String> {
-    json_query::run(prog, input)
+    jq_rs::run(prog, input)
 }
 
-fn run_pre_compiled(prog: &mut json_query::JqProgram, input: &str) -> Result<String, String> {
+fn run_pre_compiled(prog: &mut jq_rs::JqProgram, input: &str) -> Result<String, String> {
     prog.run(input)
 }
 
@@ -19,7 +19,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 
     c.bench_function("run pre-compiled", |b| {
-        let mut prog = json_query::compile(".name").unwrap();
+        let mut prog = jq_rs::compile(".name").unwrap();
         b.iter(|| run_pre_compiled(black_box(&mut prog), black_box(r#"{"name": "John Wick"}"#)))
     });
 }
