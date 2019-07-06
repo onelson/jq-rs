@@ -1,10 +1,13 @@
 use std::error;
-use std::ffi;
 use std::fmt;
 use std::result;
 
+/// This is the common Result type for the crate. Fallible operations will
+/// return this.
 pub type Result<T> = result::Result<T, Error>;
 
+/// There are many potential causes for failure when running jq programs.
+/// This enum attempts to unify them all under a single type.
 #[derive(Debug)]
 pub enum Error {
     /// The jq program failed to compile.
@@ -12,20 +15,22 @@ pub enum Error {
     /// System errors are raised by the internal jq state machine. These can
     /// indicate problems parsing input, or even failures while initializing
     /// the state machine itself.
-    ///
-    /// `reason` will be feedback from jq about what went wrong, when available.
-    System { reason: Option<String> },
+    System {
+        /// Feedback from jq about what went wrong, when available.
+        reason: Option<String>,
+    },
     /// Errors encountered during conversion between CString/String or vice
     /// versa.
-    ///
-    /// `err` will be the original error which lead to this.
-    StringConvert { err: Box<error::Error> },
+    StringConvert {
+        /// The original error which lead to this.
+        err: Box<error::Error>,
+    },
     /// Something bad happened, but it was unexpected.
     Unknown,
 }
 
-impl From<ffi::NulError> for Error {
-    fn from(err: ffi::NulError) -> Self {
+impl From<std::ffi::NulError> for Error {
+    fn from(err: std::ffi::NulError) -> Self {
         Error::StringConvert { err: Box::new(err) }
     }
 }
@@ -36,7 +41,7 @@ impl From<std::str::Utf8Error> for Error {
     }
 }
 
-const UNKNOWN: &'static str = "Unknown JQ Error";
+const UNKNOWN: &str = "Unknown JQ Error";
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

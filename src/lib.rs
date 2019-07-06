@@ -1,3 +1,4 @@
+#![deny(missing_docs)]
 //! ## Overview
 //!
 //! [jq] is a command line tool which allows users to write small filter/transform
@@ -100,7 +101,6 @@ pub fn run(program: &str, data: &str) -> Result<String> {
 
 /// A pre-compiled jq program which can be run against different inputs.
 pub struct JqProgram {
-    // lol
     jq: jq::Jq,
 }
 
