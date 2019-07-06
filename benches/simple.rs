@@ -4,12 +4,13 @@ extern crate jq_rs;
 
 use criterion::black_box;
 use criterion::Criterion;
+use jq_rs::{JqProgram, Result};
 
-fn run_one_off(prog: &str, input: &str) -> Result<String, String> {
+fn run_one_off(prog: &str, input: &str) -> Result<String> {
     jq_rs::run(prog, input)
 }
 
-fn run_pre_compiled(prog: &mut jq_rs::JqProgram, input: &str) -> Result<String, String> {
+fn run_pre_compiled(prog: &mut JqProgram, input: &str) -> Result<String> {
     prog.run(input)
 }
 

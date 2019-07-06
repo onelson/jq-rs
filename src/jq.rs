@@ -3,7 +3,7 @@
 //!
 //! These are building blocks and not intended for use from the public API.
 
-use crate::Error;
+use crate::errors::{Error, Result};
 use jq_sys::{
     // Yeah, it's a lot.
     jq_compile,
@@ -39,7 +39,7 @@ pub struct Jq {
 }
 
 impl Jq {
-    pub fn compile_program(program: CString) -> Result<Self, Error> {
+    pub fn compile_program(program: CString) -> Result<Self> {
         let jq = Jq {
             state: unsafe {
                 // jq's master branch shows this can be a null pointer, in
@@ -47,7 +47,7 @@ impl Jq {
                 let ptr = jq_init();
                 if ptr.is_null() {
                     return Err(Error::System {
-                        msg: Some("Failed to init".into()),
+                        reason: Some("Failed to init".into()),
                     });
                 } else {
                     ptr
@@ -56,7 +56,7 @@ impl Jq {
         };
         unsafe {
             if jq_compile(jq.state, program.as_ptr()) == 0 {
-                Err(Error::Compile)
+                Err(Error::InvalidProgram)
             } else {
                 Ok(jq)
             }
@@ -86,7 +86,7 @@ impl Jq {
     }
 
     /// Run the jq program against an input.
-    pub fn execute(&mut self, input: CString) -> Result<String, Error> {
+    pub fn execute(&mut self, input: CString) -> Result<String> {
         let mut parser = Parser::new();
         self.process(parser.parse(input)?)
     }
@@ -95,7 +95,7 @@ impl Jq {
     ///
     /// When this results in `Err`, the String value should contain a message about
     /// what failed.
-    fn process(&mut self, initial_value: JV) -> Result<String, Error> {
+    fn process(&mut self, initial_value: JV) -> Result<String> {
         let mut buf = String::new();
 
         unsafe {
@@ -120,7 +120,7 @@ struct JV {
 
 impl JV {
     /// Convert the current `JV` into the "dump string" rendering of itself.
-    pub fn as_dump_string(&self) -> Result<String, std::str::Utf8Error> {
+    pub fn as_dump_string(&self) -> Result<String> {
         let dump = JV {
             ptr: unsafe { jv_dump_string(self.ptr, 0) },
         };
@@ -197,7 +197,7 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self, input: CString) -> Result<JV, Error> {
+    pub fn parse(&mut self, input: CString) -> Result<JV> {
         // For a single run, we could set this to `1` (aka `true`) but this will
         // break the repeated `JqProgram` usage.
         // It may be worth exposing this to the caller so they can set it for each
@@ -225,7 +225,7 @@ impl Parser {
             Ok(value)
         } else {
             Err(Error::System {
-                msg: Some(
+                reason: Some(
                     value
                         .get_msg()
                         .unwrap_or_else(|| "Parser error".to_string()),
@@ -244,13 +244,13 @@ impl Drop for Parser {
 }
 
 /// Takes a pointer to a nul term string, and attempts to convert it to a String.
-unsafe fn get_string_value(value: *const c_char) -> Result<String, std::str::Utf8Error> {
+unsafe fn get_string_value(value: *const c_char) -> Result<String> {
     let s = CStr::from_ptr(value).to_str()?;
     Ok(s.to_owned())
 }
 
 /// Renders the data from the parser and pushes it into the buffer.
-unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
+unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<()> {
     // Looks a lot like an iterator...
 
     let mut value = JV {
@@ -258,17 +258,9 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
     };
 
     while value.is_valid() {
-        match value.as_dump_string() {
-            Ok(s) => {
-                buf.push_str(&s);
-                buf.push('\n');
-            }
-            Err(e) => {
-                return Err(Error::System {
-                    msg: Some(format!("String Decode error: {}", e)),
-                });
-            }
-        };
+        let s = value.as_dump_string()?;
+        buf.push_str(&s);
+        buf.push('\n');
 
         value = JV {
             ptr: jq_next(jq.state),
@@ -279,14 +271,14 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
         use ExitCode::*;
         match jq.get_exit_code() {
             JQ_ERROR_SYSTEM => Err(Error::System {
-                msg: value.get_msg(),
+                reason: value.get_msg(),
             }),
             // As far as I know, we should not be able to see a compile error
             // this deep into the execution of a jq program (it would need to be
             // compiled already, right?)
             // Still, compile failure is represented by an exit code, so in
             // order to be exhaustive we have to check for it.
-            JQ_ERROR_COMPILE => Err(Error::Compile),
+            JQ_ERROR_COMPILE => Err(Error::InvalidProgram),
             // Any of these `OK_` variants are "success" cases.
             // I suppose the jq program can halt successfully, or not, or not at
             // all and still terminate some other way?
@@ -294,7 +286,9 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
             JQ_ERROR_UNKNOWN => Err(Error::Unknown),
         }
     } else if let Some(reason) = value.get_msg() {
-        Err(Error::System { msg: Some(reason) })
+        Err(Error::System {
+            reason: Some(reason),
+        })
     } else {
         Ok(())
     }
