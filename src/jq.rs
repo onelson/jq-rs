@@ -3,13 +3,33 @@
 //!
 //! These are building blocks and not intended for use from the public API.
 
-use super::Error;
-// Yeah, it's a lot.
+use crate::Error;
 use jq_sys::{
-    jq_compile, jq_get_exit_code, jq_halted, jq_init, jq_next, jq_start, jq_state, jq_teardown, jv,
-    jv_copy, jv_dump_string, jv_free, jv_get_kind, jv_invalid_get_msg, jv_invalid_has_msg,
-    jv_kind_JV_KIND_INVALID, jv_kind_JV_KIND_NUMBER, jv_number_value, jv_parser, jv_parser_free,
-    jv_parser_new, jv_parser_next, jv_parser_set_buf, jv_string_value,
+    // Yeah, it's a lot.
+    jq_compile,
+    jq_get_exit_code,
+    jq_halted,
+    jq_init,
+    jq_next,
+    jq_start,
+    jq_state,
+    jq_teardown,
+    jv,
+    jv_copy,
+    jv_dump_string,
+    jv_free,
+    jv_get_kind,
+    jv_invalid_get_msg,
+    jv_invalid_has_msg,
+    jv_kind_JV_KIND_INVALID,
+    jv_kind_JV_KIND_NUMBER,
+    jv_number_value,
+    jv_parser,
+    jv_parser_free,
+    jv_parser_new,
+    jv_parser_next,
+    jv_parser_set_buf,
+    jv_string_value,
 };
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -256,7 +276,7 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<(), Error> {
     }
 
     if jq.is_halted() {
-        use self::ExitCode::*;
+        use ExitCode::*;
         match jq.get_exit_code() {
             JQ_ERROR_SYSTEM => Err(Error::System {
                 msg: value.get_msg(),
@@ -299,7 +319,7 @@ enum ExitCode {
 
 impl From<isize> for ExitCode {
     fn from(number: isize) -> Self {
-        use self::ExitCode::*;
+        use ExitCode::*;
         match number as isize {
             n if n == JQ_OK as isize => JQ_OK,
             n if n == JQ_OK_NULL_KIND as isize => JQ_OK_NULL_KIND,
