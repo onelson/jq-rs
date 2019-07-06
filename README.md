@@ -9,8 +9,9 @@
 This rust crate provides access to [jq] 1.6 via the `libjq` C API (rather than
 "shelling out").
 
-By leveraging [jq] we can extract data from and transform json strings using
-jq's dsl.
+By leveraging [jq] we can extract data from json strings using `jq`'s dsl.
+
+This crate requires Rust **1.32** or above.
 
 ## Usage
 
