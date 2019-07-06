@@ -155,6 +155,8 @@ Breaking Changes
 - Adopted 2018 edition. The minimum supported rust version is now **1.32** ([#14]).
 - Output from jq programs now includes a trailing newline, just like the output
   from the `jq` binary ([#6]).
+- Added custom `Error` and `Result` types, returned from fallible
+  functions/methods in this crate ([#8]).
 
 ## v0.3.1 ([2019-06-04](https://github.com/onelson/json-query/compare/v0.3.0..v0.3.1 "diff"))
 
@@ -201,6 +203,7 @@ Initial release.
 [#3]: https://github.com/onelson/json-query/issues/3
 [#4]: https://github.com/onelson/json-query/issues/4
 [#6]: https://github.com/onelson/jq-rs/pull/6
+[#8]: https://github.com/onelson/jq-rs/pull/8
 [#10]: https://github.com/onelson/json-query/issues/10
 [#12]: https://github.com/onelson/jq-rs/issues/12
 [#14]: https://github.com/onelson/jq-rs/issues/14

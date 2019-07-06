@@ -81,39 +81,12 @@ extern crate jq_sys;
 #[macro_use]
 extern crate serde_json;
 
+mod errors;
 mod jq;
 
 use std::ffi::CString;
-use std::fmt;
 
-pub enum Error {
-    /// The jq program failed to compile.
-    Compile,
-    /// Indicates problems initializing the JQ state machine, or invalid values
-    /// produced by it.
-    System {
-        msg: Option<String>,
-    },
-    Unknown,
-}
-
-// FIXME: Until the next minor release, we won't be returning the Error variants
-//  back to the caller. Instead we'll be converting to `String` to maintain
-//  compatibility with the current signatures. When 0.4 is ready, revise these
-//  so they are more consistent (or adopt `failure`?)
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let detail: String = match self {
-            Error::Compile => "syntax error: JQ Program failed to compile.".into(),
-            Error::System { msg } => msg
-                .as_ref()
-                .cloned()
-                .unwrap_or_else(|| "Unknown JQ Error".into()),
-            Error::Unknown => "Unknown JQ Error.".into(),
-        };
-        write!(f, "{}", detail)
-    }
-}
+pub use errors::{Error, Result};
 
 /// Run a jq program on a blob of json data.
 ///
@@ -121,7 +94,7 @@ impl fmt::Display for Error {
 /// available in the supplied `String` value.
 /// Failures can occur for a variety of reasons, but mostly you'll see them as
 /// a result of bad jq program syntax, or invalid json data.
-pub fn run(program: &str, data: &str) -> Result<String, String> {
+pub fn run(program: &str, data: &str) -> Result<String> {
     compile(program)?.run(data)
 }
 
@@ -133,38 +106,31 @@ pub struct JqProgram {
 
 impl JqProgram {
     /// Runs a json string input against a pre-compiled jq program.
-    pub fn run(&mut self, data: &str) -> Result<String, String> {
+    pub fn run(&mut self, data: &str) -> Result<String> {
         if data.trim().is_empty() {
             // During work on #4, #7, the parser test which allows us to avoid a memory
             // error shows that an empty input just yields an empty response BUT our
             // implementation would yield a parse error.
             return Ok("".into());
         }
-        let input =
-            CString::new(data).map_err(|_| "unable to convert data to c string.".to_string())?;
-        self.jq.execute(input).map_err(|e| {
-            // FIXME: string errors until v0.4
-            format!("{}", e)
-        })
+        let input = CString::new(data)?;
+        self.jq.execute(input)
     }
 }
 
 /// Compile a jq program then reuse it, running several inputs against it.
-pub fn compile(program: &str) -> Result<JqProgram, String> {
-    let prog =
-        CString::new(program).map_err(|_| "unable to convert data to c string.".to_string())?;
+pub fn compile(program: &str) -> Result<JqProgram> {
+    let prog = CString::new(program)?;
     Ok(JqProgram {
-        jq: jq::Jq::compile_program(prog).map_err(|e| {
-            // FIXME: string errors until v0.4
-            format!("{}", e)
-        })?,
+        jq: jq::Jq::compile_program(prog)?,
     })
 }
 
 #[cfg(test)]
 mod test {
 
-    use super::{compile, run};
+    use super::{compile, run, Error};
+    use matches::assert_matches;
     use serde_json;
 
     #[test]
@@ -207,12 +173,12 @@ mod test {
 
     #[test]
     fn identity_nothing() {
-        assert_eq!(run(".", ""), Ok("".to_string()));
+        assert_eq!(run(".", "").unwrap(), "".to_string());
     }
 
     #[test]
     fn identity_empty() {
-        assert_eq!(run(".", "{}"), Ok("{}\n".to_string()));
+        assert_eq!(run(".", "{}").unwrap(), "{}\n".to_string());
     }
 
     #[test]
@@ -227,37 +193,37 @@ mod test {
     #[test]
     fn extract_name() {
         let res = run(".name", r#"{"name": "test"}"#);
-        assert_eq!(res, Ok("\"test\"\n".to_string()));
+        assert_eq!(res.unwrap(), "\"test\"\n".to_string());
     }
 
     #[test]
     fn unpack_array() {
         let res = run(".[]", "[1,2,3]");
-        assert_eq!(res, Ok("1\n2\n3\n".to_string()));
+        assert_eq!(res.unwrap(), "1\n2\n3\n".to_string());
     }
 
     #[test]
     fn compile_error() {
         let res = run(". aa12312me  dsaafsdfsd", "{\"name\": \"test\"}");
-        assert!(res.is_err());
+        assert_matches!(res, Err(Error::InvalidProgram));
     }
 
     #[test]
     fn parse_error() {
         let res = run(".", "{1233 invalid json ahoy : est\"}");
-        assert!(res.is_err());
+        assert_matches!(res, Err(Error::System { .. }));
     }
 
     #[test]
     fn just_open_brace() {
         let res = run(".", "{");
-        assert!(res.is_err());
+        assert_matches!(res, Err(Error::System { .. }));
     }
 
     #[test]
     fn just_close_brace() {
         let res = run(".", "}");
-        assert!(res.is_err());
+        assert_matches!(res, Err(Error::System { .. }));
     }
 
     #[test]
@@ -269,7 +235,7 @@ mod test {
         }"#;
 
         let res = run(".", data);
-        assert!(res.is_err());
+        assert_matches!(res, Err(Error::System { .. }));
     }
 
     pub mod mem_errors {
@@ -288,14 +254,16 @@ mod test {
         fn missing_field_access() {
             let prog = ".[] | .hello";
             let data = "[1,2,3]";
-            assert!(run(prog, data).is_err());
+            let res = run(prog, data);
+            assert_matches!(res, Err(Error::System { .. }));
         }
 
         #[test]
         fn missing_field_access_compiled() {
             let mut prog = compile(".[] | .hello").unwrap();
             let data = "[1,2,3]";
-            assert!(prog.run(data).is_err());
+            let res = prog.run(data);
+            assert_matches!(res, Err(Error::System { .. }));
         }
     }
 }
