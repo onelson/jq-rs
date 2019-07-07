@@ -3,6 +3,9 @@
 [![crates.io](https://img.shields.io/crates/v/jq-rs.svg)](https://crates.io/crates/jq-rs)
 [![crates.io](https://img.shields.io/crates/d/jq-rs.svg)](https://crates.io/crates/jq-rs)
 [![docs.rs](https://docs.rs/jq-rs/badge.svg)](https://docs.rs/jq-rs)
+[![Build Status](https://travis-ci.org/onelson/jq-rs.svg?branch=master)](https://travis-ci.org/onelson/jq-rs)
+
+## Overview
 
 > Prior to v0.4.0 this crate was named [json-query].
 
@@ -23,7 +26,7 @@ use jq_rs;
 // ...
 
 let res = jq_rs::run(".name", r#"{"name": "test"}"#);
-assert_eq!(res, Ok("\"test\"\n".to_string()));
+assert_eq!(res.unwrap(), "\"test\"\n".to_string());
 ```
 
 In addition to running one-off programs with `jq_rs::run()`, you can also
@@ -34,52 +37,52 @@ different inputs.
 use jq_rs;
 
 let tv_shows = r#"[
-    {"title": "Twilight Zone"},
-    {"title": "X-Files"},
-    {"title": "The Outer Limits"}
+ {"title": "Twilight Zone"},
+ {"title": "X-Files"},
+ {"title": "The Outer Limits"}
 ]"#;
 
 let movies = r#"[
-    {"title": "The Omen"},
-    {"title": "Amityville Horror"},
-    {"title": "The Thing"}
+ {"title": "The Omen"},
+ {"title": "Amityville Horror"},
+ {"title": "The Thing"}
 ]"#;
 
 let mut program = jq_rs::compile("[.[].title] | sort").unwrap();
 
 assert_eq!(
-    &program.run(tv_shows).unwrap(),
-    "[\"The Outer Limits\",\"Twilight Zone\",\"X-Files\"]\n"
+ &program.run(tv_shows).unwrap(),
+ "[\"The Outer Limits\",\"Twilight Zone\",\"X-Files\"]\n"
 );
 
 assert_eq!(
-    &program.run(movies).unwrap(),
-    "[\"Amityville Horror\",\"The Omen\",\"The Thing\"]\n",
+ &program.run(movies).unwrap(),
+ "[\"Amityville Horror\",\"The Omen\",\"The Thing\"]\n",
 );
 ```
 
-### A note on perf
+## A Note on Performance
 
 While the benchmarks are far from exhaustive, they indicate that much of the
 runtime of a simple jq program goes to the compilation. In fact, the compilation
 is _quite expensive_.
 
-```
+```text
 run one off             time:   [48.594 ms 48.689 ms 48.800 ms]
 Found 6 outliers among 100 measurements (6.00%)
-  3 (3.00%) high mild
-  3 (3.00%) high severe
+3 (3.00%) high mild
+3 (3.00%) high severe
 
 run pre-compiled        time:   [4.0351 us 4.0708 us 4.1223 us]
 Found 15 outliers among 100 measurements (15.00%)
-  6 (6.00%) high mild
-  9 (9.00%) high severe
+6 (6.00%) high mild
+9 (9.00%) high severe
 ```
 
 If you have a need to run the same jq program multiple times it is
 _highly recommended_ to retain a pre-compiled `JqProgram` and reuse it.
 
-### Handling Output
+## Handling Output
 
 The return values from jq are _strings_ since there is no certainty that the
 output will be valid json. As such the output will need to be parsed if you want
@@ -96,13 +99,13 @@ use serde_json::{self, json};
 // ...
 
 let data = json!({
-    "movies": [
-        { "title": "Coraline", "year": 2009 },
-        { "title": "ParaNorman", "year": 2012 },
-        { "title": "Boxtrolls", "year": 2014 },
-        { "title": "Kubo and the Two Strings", "year": 2016 },
-        { "title": "Missing Link", "year": 2019 }
-    ]
+ "movies": [
+     { "title": "Coraline", "year": 2009 },
+     { "title": "ParaNorman", "year": 2012 },
+     { "title": "Boxtrolls", "year": 2014 },
+     { "title": "Kubo and the Two Strings", "year": 2016 },
+     { "title": "Missing Link", "year": 2019 }
+ ]
 });
 
 let query = "[.movies[].year]";
