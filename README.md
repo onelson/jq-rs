@@ -150,7 +150,7 @@ hints with the [jq-sys] crate on how to link.
 
 # Changelog
 
-## v0.4.0 (Unreleased)
+## v0.4.0 ([2019-07-06](https://github.com/onelson/json-query/compare/v0.3.1..v0.4.0 "diff"))
 
 Breaking Changes
 
@@ -161,7 +161,7 @@ Breaking Changes
 - Added custom `Error` and `Result` types, returned from fallible
   functions/methods in this crate ([#8]).
 
-## v0.3.1 ([2019-06-04](https://github.com/onelson/json-query/compare/v0.3.0..v0.3.1 "diff"))
+## v0.3.1 ([2019-07-04](https://github.com/onelson/json-query/compare/v0.3.0..v0.3.1 "diff"))
 
 **Note: This is final release with the name [json-query].
 Future releases will be published as [jq-rs].**

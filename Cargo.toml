@@ -1,6 +1,6 @@
 [package]
 name = "jq-rs"
-version = "0.4.0-alpha"
+version = "0.4.0"
 authors = ["Owen Nelson <onelson@gmail.com>"]
 description = "Run jq programs to extract data from json strings."
 repository = "https://github.com/onelson/jq-rs"
@@ -16,7 +16,7 @@ default = []
 bundled = ["jq-sys/bundled"]
 
 [dependencies]
-jq-sys = "0.2.1"
+jq-sys = "0.2.*"
 
 [dev-dependencies]
 criterion = "0.2"
