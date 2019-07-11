@@ -7,7 +7,7 @@ repository = "https://github.com/onelson/jq-rs"
 homepage = "https://github.com/onelson/jq-rs"
 license = "Apache-2.0/MIT"
 categories = ["api-bindings"]
-keywords = ["json", "jq"]
+keywords = ["json", "jq", "query"]
 readme = "README.md"
 edition = "2018"
 
