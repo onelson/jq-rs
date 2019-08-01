@@ -99,7 +99,13 @@ impl Jq {
         let mut buf = String::new();
 
         unsafe {
-            jq_start(self.state, initial_value.ptr, 0);
+            // `jq_start` seems to be a consuming call.
+            // In order to avoid a double-free, when `initial_value` is dropped,
+            // we have to use `jv_copy` on the inner `jv`.
+            jq_start(self.state, jv_copy(initial_value.ptr), 0);
+            // After, we can manually free the `initial_value` with `drop` since
+            // it is no longer needed.
+            drop(initial_value);
 
             dump(self, &mut buf)?;
         }
@@ -122,7 +128,7 @@ impl JV {
     /// Convert the current `JV` into the "dump string" rendering of itself.
     pub fn as_dump_string(&self) -> Result<String> {
         let dump = JV {
-            ptr: unsafe { jv_dump_string(self.ptr, 0) },
+            ptr: unsafe { jv_dump_string(jv_copy(self.ptr), 0) },
         };
         unsafe { get_string_value(jv_string_value(dump.ptr)) }
     }
@@ -162,21 +168,11 @@ impl JV {
     }
 
     pub fn is_valid(&self) -> bool {
-        unsafe {
-            // FIXME: looks like this copy should not be needed (but it is?)
-            //  Test suite shows a memory error if this value is freed after
-            //  being passed to `jv_get_kind()`, so I guess this is a
-            //  consuming call?
-
-            jv_get_kind(jv_copy(self.ptr)) != jv_kind_JV_KIND_INVALID
-        }
+        unsafe { jv_get_kind(self.ptr) != jv_kind_JV_KIND_INVALID }
     }
 
     pub fn invalid_has_msg(&self) -> bool {
-        // FIXME: the C lib suggests the jv passed in here will eventually be freed.
-        //  I had a a `jv_copy()` to side-step this, but removing it removes one
-        //  leak warning in valgrind, so I don't know what the deal is.
-        unsafe { jv_invalid_has_msg(self.ptr) == 1 }
+        unsafe { jv_invalid_has_msg(jv_copy(self.ptr)) == 1 }
     }
 }
 
