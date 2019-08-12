@@ -3,18 +3,25 @@ extern crate jq_rs;
 extern crate error_chain;
 
 mod errors {
-    // Create the Error, ErrorKind, ResultExt, and Result types
-    error_chain! {}
+    error_chain! {
+        foreign_links {
+            Jq(jq_rs::Error);
+        }
+    }
 }
 
-use errors::*;
+use self::errors::{Error, ErrorKind};
 
 #[test]
 fn test_error_chain_compat() {
-    assert_eq!(
-        jq_rs::run(".", "[[[{}}")
-            .chain_err(|| "custom error message")
-            .map_err(|e| format!("{}", e)),
-        Err("custom error message".to_string())
-    );
+    match jq_rs::run(".", "[[[{}}").unwrap_err().into() {
+        Error(ErrorKind::Jq(e), _s) => {
+            // Proving that jq_rs::Error does in fact implement `std::error::Error`.
+            // Sort of redundant considering error_chain requires this, but it
+            // can't hurt to say it explicitly here.
+            use std::error::Error as _;
+            let _ = e.source();
+        }
+        _ => unreachable!("error-chain should be converting."),
+    }
 }
