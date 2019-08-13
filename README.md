@@ -140,15 +140,14 @@ system's package manager.
 See the [jq-sys building docs][jq-sys-building] for details on how to share
 hints with the [jq-sys] crate on how to link.
 
-[jq]: https://github.com/stedolan/jq
-[serde_json]: https://github.com/serde-rs/json
-[jq-rs]: https://crates.io/crates/jq-rs
-[json-query]: https://crates.io/crates/json-query
-[jq-sys]: https://github.com/onelson/jq-sys
-[jq-sys-building]: https://github.com/onelson/jq-sys#building
-[jq-src]: https://github.com/onelson/jq-src
-
 # Changelog
+
+## Unreleased
+
+Additions
+
+- Implements `std::error::Error + Send + 'static` for `jq_rs::Error` to better
+  integrate with popular error handling crate [error-chain] and others ([#22]).
 
 ## v0.4.0 ([2019-07-06](https://github.com/onelson/json-query/compare/v0.3.1..v0.4.0 "diff"))
 
@@ -202,6 +201,15 @@ Breaking Changes:
 
 Initial release.
 
+[jq]: https://github.com/stedolan/jq
+[serde_json]: https://github.com/serde-rs/json
+[jq-rs]: https://crates.io/crates/jq-rs
+[json-query]: https://crates.io/crates/json-query
+[jq-sys]: https://github.com/onelson/jq-sys
+[jq-sys-building]: https://github.com/onelson/jq-sys#building
+[jq-src]: https://github.com/onelson/jq-src
+[error-chain]: https://crates.io/crates/error-chain
+
 [#1]: https://github.com/onelson/json-query/issues/1
 [#3]: https://github.com/onelson/json-query/issues/3
 [#4]: https://github.com/onelson/json-query/issues/4
@@ -210,3 +218,4 @@ Initial release.
 [#10]: https://github.com/onelson/json-query/issues/10
 [#12]: https://github.com/onelson/jq-rs/issues/12
 [#14]: https://github.com/onelson/jq-rs/issues/14
+[#22]: https://github.com/onelson/jq-rs/pull/22
