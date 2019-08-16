@@ -5,31 +5,10 @@
 
 use crate::errors::{Error, Result};
 use jq_sys::{
-    // Yeah, it's a lot.
-    jq_compile,
-    jq_get_exit_code,
-    jq_halted,
-    jq_init,
-    jq_next,
-    jq_start,
-    jq_state,
-    jq_teardown,
-    jv,
-    jv_copy,
-    jv_dump_string,
-    jv_free,
-    jv_get_kind,
-    jv_invalid_get_msg,
-    jv_invalid_has_msg,
-    jv_kind_JV_KIND_INVALID,
-    jv_kind_JV_KIND_NUMBER,
-    jv_number_value,
-    jv_parser,
-    jv_parser_free,
-    jv_parser_new,
-    jv_parser_next,
-    jv_parser_set_buf,
-    jv_string_value,
+    jq_compile, jq_get_exit_code, jq_halted, jq_init, jq_next, jq_start, jq_state, jq_teardown, jv,
+    jv_copy, jv_dump_string, jv_free, jv_get_kind, jv_invalid_get_msg, jv_invalid_has_msg,
+    jv_kind_JV_KIND_INVALID, jv_kind_JV_KIND_NUMBER, jv_kind_JV_KIND_STRING, jv_number_value,
+    jv_parser, jv_parser_free, jv_parser_new, jv_parser_next, jv_parser_set_buf, jv_string_value,
 };
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -41,10 +20,10 @@ pub struct Jq {
 impl Jq {
     pub fn compile_program(program: CString) -> Result<Self> {
         let jq = Jq {
-            state: unsafe {
+            state: {
                 // jq's master branch shows this can be a null pointer, in
                 // which case the binary will exit with a `Error::System`.
-                let ptr = jq_init();
+                let ptr = unsafe { jq_init() };
                 if ptr.is_null() {
                     return Err(Error::System {
                         reason: Some("Failed to init".into()),
@@ -54,12 +33,11 @@ impl Jq {
                 }
             },
         };
-        unsafe {
-            if jq_compile(jq.state, program.as_ptr()) == 0 {
-                Err(Error::InvalidProgram)
-            } else {
-                Ok(jq)
-            }
+
+        if unsafe { jq_compile(jq.state, program.as_ptr()) } == 0 {
+            Err(Error::InvalidProgram)
+        } else {
+            Ok(jq)
         }
     }
 
@@ -147,9 +125,10 @@ impl JV {
                     },
                 };
 
-                let s = unsafe { get_string_value(jv_string_value(msg.ptr)) };
-
-                format!("Parse error: {}", s.unwrap_or_else(|_| "unknown".into()))
+                format!(
+                    "JQ: Parse error: {}",
+                    msg.as_string().unwrap_or_else(|_| "unknown".into())
+                )
             };
             Some(reason)
         } else {
@@ -163,6 +142,16 @@ impl JV {
                 Some(jv_number_value(self.ptr))
             } else {
                 None
+            }
+        }
+    }
+
+    pub fn as_string(&self) -> Result<String> {
+        unsafe {
+            if jv_get_kind(self.ptr) == jv_kind_JV_KIND_STRING {
+                get_string_value(jv_string_value(self.ptr))
+            } else {
+                Err(Error::Unknown)
             }
         }
     }
@@ -224,7 +213,7 @@ impl Parser {
                 reason: Some(
                     value
                         .get_msg()
-                        .unwrap_or_else(|| "Parser error".to_string()),
+                        .unwrap_or_else(|| "JQ: Parser error".to_string()),
                 ),
             })
         }
