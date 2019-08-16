@@ -299,16 +299,15 @@ enum ExitCode {
 impl From<isize> for ExitCode {
     fn from(number: isize) -> Self {
         use ExitCode::*;
-        match number as isize {
-            n if n == JQ_OK as isize => JQ_OK,
-            n if n == JQ_OK_NULL_KIND as isize => JQ_OK_NULL_KIND,
-            n if n == JQ_ERROR_SYSTEM as isize => JQ_ERROR_SYSTEM,
-            n if n == JQ_ERROR_COMPILE as isize => JQ_ERROR_COMPILE,
-            n if n == JQ_OK_NO_OUTPUT as isize => JQ_OK_NO_OUTPUT,
-            n if n == JQ_ERROR_UNKNOWN as isize => JQ_ERROR_UNKNOWN,
+        match number {
+            0 => JQ_OK,
+            -1 => JQ_OK_NULL_KIND,
+            2 => JQ_ERROR_SYSTEM,
+            3 => JQ_ERROR_COMPILE,
+            -4 => JQ_OK_NO_OUTPUT,
             // `5` is called out explicitly in the jq source, but also "unknown"
             // seems to make good sense for other unexpected number.
-            _ => JQ_ERROR_UNKNOWN,
+            5 | _ => JQ_ERROR_UNKNOWN,
         }
     }
 }
