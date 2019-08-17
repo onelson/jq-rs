@@ -142,14 +142,14 @@ hints with the [jq-sys] crate on how to link.
 
 # Changelog
 
-## Unreleased
+## v0.4.1 ([2019-08-17](https://github.com/onelson/jq-rs/compare/v0.4.0..v0.4.1 "diff"))
 
 Additions
 
 - Implements `std::error::Error + Send + 'static` for `jq_rs::Error` to better
   integrate with popular error handling crate [error-chain] and others ([#22]).
 
-## v0.4.0 ([2019-07-06](https://github.com/onelson/json-query/compare/v0.3.1..v0.4.0 "diff"))
+## v0.4.0 ([2019-07-06](https://github.com/onelson/jq-rs/compare/v0.3.1..v0.4.0 "diff"))
 
 Breaking Changes
 
@@ -197,7 +197,7 @@ Breaking Changes:
 - Added some basic docs.
 - Added a `bundled` feature to opt in or out of using the bundled source.
 
-## 0.1.0 (2019-01-13)
+## v0.1.0 (2019-01-13)
 
 Initial release.
 
