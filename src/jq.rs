@@ -287,27 +287,29 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<()> {
 /// the 1.6 release, though there's no enum that I saw at that point in the git
 /// history.
 #[allow(non_camel_case_types, dead_code)]
+#[rustfmt::skip]
 enum ExitCode {
-    JQ_OK = 0,
-    JQ_OK_NULL_KIND = -1,
-    JQ_ERROR_SYSTEM = 2,
-    JQ_ERROR_COMPILE = 3,
-    JQ_OK_NO_OUTPUT = -4,
-    JQ_ERROR_UNKNOWN = 5,
+    JQ_OK               =  0,
+    JQ_OK_NULL_KIND     = -1,
+    JQ_ERROR_SYSTEM     =  2,
+    JQ_ERROR_COMPILE    =  3,
+    JQ_OK_NO_OUTPUT     = -4,
+    JQ_ERROR_UNKNOWN    =  5,
 }
 
 impl From<isize> for ExitCode {
+    #[rustfmt::skip]
     fn from(number: isize) -> Self {
         use ExitCode::*;
         match number {
-            0 => JQ_OK,
+             0 => JQ_OK,
             -1 => JQ_OK_NULL_KIND,
-            2 => JQ_ERROR_SYSTEM,
-            3 => JQ_ERROR_COMPILE,
+             2 => JQ_ERROR_SYSTEM,
+             3 => JQ_ERROR_COMPILE,
             -4 => JQ_OK_NO_OUTPUT,
-            // `5` is called out explicitly in the jq source, but also "unknown"
-            // seems to make good sense for other unexpected number.
-            5 | _ => JQ_ERROR_UNKNOWN,
+             // `5` is called out explicitly in the jq source, but also "unknown"
+             // seems to make good sense for other unexpected number.
+             5 | _ => JQ_ERROR_UNKNOWN,
         }
     }
 }
