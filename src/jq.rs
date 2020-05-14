@@ -5,21 +5,23 @@
 
 use crate::errors::{Error, Result};
 use jq_sys::{
-    jq_compile, jq_get_exit_code, jq_halted, jq_init, jq_next, jq_start, jq_state, jq_teardown, jv,
-    jv_copy, jv_dump_string, jv_free, jv_get_kind, jv_invalid_get_msg, jv_invalid_has_msg,
-    jv_kind_JV_KIND_INVALID, jv_kind_JV_KIND_NUMBER, jv_kind_JV_KIND_STRING, jv_number_value,
-    jv_parser, jv_parser_free, jv_parser_new, jv_parser_next, jv_parser_set_buf, jv_string_value,
+    jq_compile, jq_format_error, jq_get_exit_code, jq_halted, jq_init, jq_next, jq_set_error_cb,
+    jq_start, jq_state, jq_teardown, jv, jv_copy, jv_dump_string, jv_free, jv_get_kind,
+    jv_invalid_get_msg, jv_invalid_has_msg, jv_kind_JV_KIND_INVALID, jv_kind_JV_KIND_NUMBER,
+    jv_kind_JV_KIND_STRING, jv_number_value, jv_parser, jv_parser_free, jv_parser_new,
+    jv_parser_next, jv_parser_set_buf, jv_string_value,
 };
 use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
+use std::os::raw::{c_char, c_void};
 
 pub struct Jq {
     state: *mut jq_state,
+    err_buf: String,
 }
 
 impl Jq {
     pub fn compile_program(program: CString) -> Result<Self> {
-        let jq = Jq {
+        let mut jq = Jq {
             state: {
                 // jq's master branch shows this can be a null pointer, in
                 // which case the binary will exit with a `Error::System`.
@@ -32,10 +34,25 @@ impl Jq {
                     ptr
                 }
             },
+            err_buf: "".to_string(),
         };
 
+        extern fn err_cb(data: *mut c_void, msg: jv) {
+            unsafe {
+                let formatted = jq_format_error(msg);
+                let jq = &mut *(data as *mut Jq);
+                jq.err_buf += &(CStr::from_ptr(jv_string_value(formatted)).to_str().unwrap_or("").to_string() + "\n");
+                jv_free(formatted);
+            }
+        }
+        unsafe {
+            jq_set_error_cb(jq.state, Some(err_cb), &mut jq as *mut Jq as *mut c_void);
+        }
+
         if unsafe { jq_compile(jq.state, program.as_ptr()) } == 0 {
-            Err(Error::InvalidProgram)
+            Err(Error::InvalidProgram {
+                reason: jq.err_buf.clone(),
+            })
         } else {
             Ok(jq)
         }
@@ -263,7 +280,9 @@ unsafe fn dump(jq: &Jq, buf: &mut String) -> Result<()> {
             // compiled already, right?)
             // Still, compile failure is represented by an exit code, so in
             // order to be exhaustive we have to check for it.
-            JQ_ERROR_COMPILE => Err(Error::InvalidProgram),
+            JQ_ERROR_COMPILE => Err(Error::InvalidProgram {
+                reason: jq.err_buf.clone(),
+            }),
             // Any of these `OK_` variants are "success" cases.
             // I suppose the jq program can halt successfully, or not, or not at
             // all and still terminate some other way?
