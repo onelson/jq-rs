@@ -15,7 +15,10 @@ pub type Result<T> = result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     /// The jq program failed to compile.
-    InvalidProgram,
+    InvalidProgram {
+        /// JQ's explanation of the compilation error
+        reason: String,
+    },
     /// System errors are raised by the internal jq state machine. These can
     /// indicate problems parsing input, or even failures while initializing
     /// the state machine itself.
@@ -39,7 +42,7 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         match self {
             Error::StringConvert { .. } => ERR_STRING_CONV,
-            Error::InvalidProgram => ERR_COMPILE,
+            Error::InvalidProgram { reason } => reason,
             Error::System { reason } => reason
                 .as_ref()
                 .map(|x| x.as_str())
@@ -79,7 +82,7 @@ impl From<std::str::Utf8Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let detail: String = match self {
-            Error::InvalidProgram => ERR_COMPILE.into(),
+            Error::InvalidProgram { reason } => format!("{}: {}", ERR_COMPILE, reason),
             Error::System { reason } => reason
                 .as_ref()
                 .cloned()
