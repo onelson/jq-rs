@@ -1,0 +1,34 @@
+name: test
+on: pull_request
+
+env:
+  RUST_BACKTRACE: 1
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          override: true
+          toolchain: stable
+          profile: minimal
+      - uses: Swatinem/rust-cache@v2
+      - name: Install jq
+        uses: dcarbone/install-jq-action@v1.0.1
+        with:
+          version: 1.6
+      - name: 'Check jq'
+        run: |
+          which jq
+          jq --version
+          export JQ_LIB_DIR=$(eval which jq)
+      - name: Build workspace
+        run: export JQ_LIB_DIR=$(eval which jq) && cargo build
+      # - name: Test workspace
+      #   run: export JQ_LIB_DIR=$(eval which jq) && cargo test
