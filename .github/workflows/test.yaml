@@ -1,5 +1,5 @@
 name: test
-on: commit
+on: push
 
 env:
   RUST_BACKTRACE: 1
