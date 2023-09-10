@@ -1,10 +1,10 @@
-# When pushed to main, run `cargo +nightly fmt` against all files and open a PR.
+# When pushed to master, run `cargo +nightly fmt` against all files and open a PR.
 name: rustfmt
 on:
   push:
-    # Limit to `main` because this action creates a PR
+    # Limit to `master` because this action creates a PR
     branches:
-      - main
+      - master
 jobs:
   rustfmt_nightly:
     runs-on: ubuntu-latest
