@@ -1,5 +1,5 @@
 name: test
-on: commit
+on: pull_request
 
 env:
   RUST_BACKTRACE: 1
