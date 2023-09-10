@@ -1,5 +1,7 @@
 name: clippy
 on: push
+env:
+  JQ_LIB_DIR: $(eval which jq)
 jobs:
   clippy_nightly:
     runs-on: ubuntu-latest
@@ -11,7 +13,6 @@ jobs:
           components: clippy
           override: true
       - uses: actions-rs/clippy-check@v1
-        run: export JQ_LIB_DIR=$(eval which jq)
         with:
           args: "--all-features"
           token: ${{ secrets.GITHUB_TOKEN }}
