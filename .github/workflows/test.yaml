@@ -10,6 +10,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            # n.b. libjq is pinned at 1.6 for now, with 1.7 support planned for the future (ref: #37)
+            apt-deps: libjq-dev=1.6-2.1ubuntu3 libonig-dev
+            jq-lib-dir: /usr/lib/x86_64-linux-gnu/
+            onig-lib-dir: /usr/lib/x86_64-linux-gnu/
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -19,16 +25,13 @@ jobs:
           toolchain: stable
           profile: minimal
       - uses: Swatinem/rust-cache@v2
-      - name: Install jq
-        uses: dcarbone/install-jq-action@v1.0.1
-        with:
-          version: 1.6
-      - name: 'Check jq'
-        run: |
-          which jq
-          jq --version
-          export JQ_LIB_DIR=$(eval which jq)
+      # XXX: libjq _appears to be_ already installed (and available via pkg-config?) on darwin.
+      - name: Install System Deps (Linux)
+        if: ${{ matrix.apt-deps }}
+        run: sudo apt install -y ${{ matrix.apt-deps }}
+
       - name: Build workspace
-        run: export JQ_LIB_DIR=$(eval which jq) && cargo build
-      # - name: Test workspace
-      #   run: export JQ_LIB_DIR=$(eval which jq) && cargo test
+        run: JQ_LIB_DIR="${{ matrix.jq-lib-dir }}" ONIG_LIB_DIR="${{ matrix.onig-lib-dir }}" cargo build
+
+      - name: Test workspace
+        run: JQ_LIB_DIR="${{ matrix.jq-lib-dir }}" ONIG_LIB_DIR="${{ matrix.onig-lib-dir }}" cargo test
