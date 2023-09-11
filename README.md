@@ -139,3 +139,11 @@ You can choose to compile `libjq` yourself, or perhaps install it via your
 system's package manager.
 See the [jq-sys building docs][jq-sys-building] for details on how to share
 hints with the [jq-sys] crate on how to link.
+
+
+[jq]: https://github.com/stedolan/jq
+[serde_json]: https://github.com/serde-rs/json
+[json-query]: https://crates.io/crates/json-query
+[jq-sys]: https://github.com/onelson/jq-sys
+[jq-sys-building]: https://github.com/onelson/jq-sys#building
+[jq-src]: https://github.com/onelson/jq-src
