@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/jq-rs.svg)](https://crates.io/crates/jq-rs)
 [![crates.io](https://img.shields.io/crates/d/jq-rs.svg)](https://crates.io/crates/jq-rs)
 [![docs.rs](https://docs.rs/jq-rs/badge.svg)](https://docs.rs/jq-rs)
-[![Build Status](https://travis-ci.org/onelson/jq-rs.svg?branch=master)](https://travis-ci.org/onelson/jq-rs)
+[![Build Status](https://github.com/onelson/jq-rs/actions/workflows/test.yaml/badge.svg)](https://github.com/onelson/jq-rs/actions/workflows/test.yaml)
 
 ## Overview
 
