@@ -1,6 +1,5 @@
 name: test
-on: pull_request
-
+on: push
 env:
   RUST_BACKTRACE: 1
 
