@@ -27,9 +27,9 @@ jobs:
       - uses: actions-rs/toolchain@v1.0.7
         with:
           profile: minimal
-          toolchain: nightly
+          toolchain: stable
           components: rustfmt
           override: true
       - name: Run rustfmt
         id: rustfmt
-        run: rustfmt +nightly --edition 2018 --check $(find . -type f -iname *.rs)
+        run: rustfmt --edition 2018 --check $(find . -type f -iname *.rs)
