@@ -16,6 +16,8 @@ jobs:
             apt-deps: libjq-dev=1.6-2.1ubuntu3 libonig-dev
             jq-lib-dir: /usr/lib/x86_64-linux-gnu/
             onig-lib-dir: /usr/lib/x86_64-linux-gnu/
+          - os: macos-latest
+            use-install-jq-action: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -25,13 +27,29 @@ jobs:
           toolchain: stable
           profile: minimal
       - uses: Swatinem/rust-cache@v2
-      # XXX: libjq _appears to be_ already installed (and available via pkg-config?) on darwin.
+
       - name: Install System Deps (Linux)
         if: ${{ matrix.apt-deps }}
         run: sudo apt install -y ${{ matrix.apt-deps }}
 
+      - name: Install jq (macOS)
+        uses: dcarbone/install-jq-action@v1.0.1
+        with:
+          version: 1.6
+        if: ${{ matrix.use-install-jq-action }}
+
       - name: Build workspace
-        run: JQ_LIB_DIR="${{ matrix.jq-lib-dir }}" ONIG_LIB_DIR="${{ matrix.onig-lib-dir }}" cargo build
+        # FIXME: config for linking is a real mess - figure out something tidier now that both linux/macOS are green
+        run: |
+          [[ ! -z "${{ matrix.use-install-jq-action }}" ]] && export JQ_LIB_DIR="$(eval which jq)"
+          [[ ! -z "${{ matrix.jq-lib-dir }}" ]] && export JQ_LIB_DIR="${{ matrix.jq-lib-dir }}"
+          [[ ! -z "${{ matrix.onig-lib-dir }}" ]] && export ONIG_LIB_DIR="${{ matrix.onig-lib-dir }}"
+          cargo build
 
       - name: Test workspace
-        run: JQ_LIB_DIR="${{ matrix.jq-lib-dir }}" ONIG_LIB_DIR="${{ matrix.onig-lib-dir }}" cargo test
+        # FIXME: config for linking is a real mess - figure out something tidier now that both linux/macOS are green
+        run: |
+          [[ ! -z "${{ matrix.use-install-jq-action }}" ]] && export JQ_LIB_DIR="$(eval which jq)"
+          [[ ! -z "${{ matrix.jq-lib-dir }}" ]] && export JQ_LIB_DIR="${{ matrix.jq-lib-dir }}"
+          [[ ! -z "${{ matrix.onig-lib-dir }}" ]] && export ONIG_LIB_DIR="${{ matrix.onig-lib-dir }}"
+          cargo test
