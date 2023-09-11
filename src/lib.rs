@@ -271,7 +271,7 @@ mod test {
     #[test]
     fn compile_error() {
         let res = run(". aa12312me  dsaafsdfsd", "{\"name\": \"test\"}");
-        assert_matches!(res, Err(Error::InvalidProgram));
+        assert_matches!(res, Err(Error::InvalidProgram { .. }));
     }
 
     #[test]
