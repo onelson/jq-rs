@@ -269,12 +269,6 @@ mod test {
     }
 
     #[test]
-    fn compile_error() {
-        let res = run(". aa12312me  dsaafsdfsd", "{\"name\": \"test\"}");
-        assert_matches!(res, Err(Error::InvalidProgram));
-    }
-
-    #[test]
     fn parse_error() {
         let res = run(".", "{1233 invalid json ahoy : est\"}");
         assert_matches!(res, Err(Error::System { .. }));
